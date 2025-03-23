@@ -1,10 +1,11 @@
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from flask_login import login_required, current_user
 import os
 import uuid
 from werkzeug.utils import secure_filename
 from utils.resume_parser import process_resume, match_resume_with_job, generate_improved_resume
 from extensions import mongo
+from models import User
 
 resume_bp = Blueprint("resume", __name__)
 
@@ -23,23 +24,27 @@ def allowed_file(filename):
 def upload_resume():
     if request.method == "POST":
         if "resume" not in request.files:
-            return jsonify({"error": "No resume file uploaded."}), 400
+            flash("No resume file uploaded.", "danger")
+            return redirect(url_for("resume.upload_resume"))
 
         file = request.files["resume"]
         job_description = request.form.get("jobDescription", "")
 
         if file.filename == "":
-            return jsonify({"error": "No selected file."}), 400
+            flash("No selected file.", "danger")
+            return redirect(url_for("resume.upload_resume"))
 
         if not allowed_file(file.filename):
-            return jsonify({"error": "Invalid file type. Upload PDF or DOCX."}), 400
+            flash("Invalid file type. Upload PDF or DOCX.", "danger")
+            return redirect(url_for("resume.upload_resume"))
 
         # ✅ Fix file size check
         file.seek(0, os.SEEK_END)
         file_size = file.tell()
         file.seek(0)
         if file_size > MAX_FILE_SIZE:
-            return jsonify({"error": "File size exceeds the maximum limit of 5MB."}), 400
+            flash("File size exceeds the maximum limit of 5MB.", "danger")
+            return redirect(url_for("resume.upload_resume"))
 
         # ✅ Save with unique filename
         filename = str(uuid.uuid4()) + "_" + secure_filename(file.filename)
@@ -61,6 +66,10 @@ def upload_resume():
             }
             mongo.db.resume_analysis.insert_one(resume_analysis)
 
+            flash("Resume uploaded and analyzed successfully!", "success")
             return render_template("result.html", resume_text=resume_text, analysis=analysis_result, download_link=improved_resume_path)
         except Exception as e:
-            return jsonify({"error": f"Error processing resume: {str(e)}"}), 500
+            flash(f"Error processing resume: {str(e)}", "danger")
+            return redirect(url_for("resume.upload_resume"))
+    
+    return render_template("upload_resume.html")  # ✅ Ensure GET request returns a template

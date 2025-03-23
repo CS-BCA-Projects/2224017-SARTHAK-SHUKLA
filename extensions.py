@@ -3,11 +3,16 @@ import urllib.parse
 from dotenv import load_dotenv
 from flask_pymongo import PyMongo
 from flask_login import LoginManager
+from models import User  # ✅ Ensure this import works
 
 load_dotenv()
 
 mongo = PyMongo()
 login_manager = LoginManager()
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.get_by_id(user_id)  # ✅ Load user from MongoDB
 
 def init_db(app):
     raw_mongo_uri = os.getenv("MONGO_URI")

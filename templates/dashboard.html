@@ -9,7 +9,7 @@
 <body class="bg-light">
     <div class="container mt-5">
         <div class="card shadow-lg p-4">
-            <h2 class="text-center">Welcome, {{ user.username }}</h2>
+            <h2 class="text-center">Welcome, {{ user.username if user.is_authenticated else 'Guest' }}</h2>
             <p class="text-center">View your resume analysis history below.</p>
             <table class="table table-striped">
                 <thead>
@@ -20,13 +20,17 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for resume in resumes %}
-                    <tr>
-                        <td>{{ resume.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
-                        <td>{{ resume.match_score }}%</td>
-                        <td>{{ resume.feedback[:100] }}...</td>
-                    </tr>
-                    {% endfor %}
+                    {% if resumes %}
+                        {% for resume in resumes %}
+                        <tr>
+                            <td>{{ resume.timestamp.strftime('%Y-%m-%d %H:%M') if resume.timestamp else 'N/A' }}</td>
+                            <td>{{ resume.match_score if resume.match_score else 'N/A' }}%</td>
+                            <td>{{ resume.feedback[:100] if resume.feedback else 'No feedback available' }}...</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="3" class="text-center">No resume analysis history found.</td></tr>
+                    {% endif %}
                 </tbody>
             </table>
             <div class="text-center mt-3">
