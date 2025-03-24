@@ -1,20 +1,22 @@
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, send_file
 from flask_login import login_required, current_user
 import os
 import uuid
 from werkzeug.utils import secure_filename
 from utils.resume_parser import process_resume, match_resume_with_job, generate_improved_resume
 from extensions import mongo
-from models import User
 
 resume_bp = Blueprint("resume", __name__)
 
 UPLOAD_FOLDER = "uploads"
+RESUME_FOLDER = "static/resumes"  # Store generated resumes in static folder
 ALLOWED_EXTENSIONS = {"pdf", "docx"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+# Ensure directories exist
+for folder in [UPLOAD_FOLDER, RESUME_FOLDER]:
+    if not os.path.exists(folder):
+        os.makedirs(folder)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[-1].lower() in ALLOWED_EXTENSIONS
@@ -38,7 +40,7 @@ def upload_resume():
             flash("Invalid file type. Upload PDF or DOCX.", "danger")
             return redirect(url_for("resume.upload_resume"))
 
-        # ✅ Fix file size check
+        # ✅ File size check
         file.seek(0, os.SEEK_END)
         file_size = file.tell()
         file.seek(0)
@@ -67,9 +69,25 @@ def upload_resume():
             mongo.db.resume_analysis.insert_one(resume_analysis)
 
             flash("Resume uploaded and analyzed successfully!", "success")
-            return render_template("result.html", resume_text=resume_text, analysis=analysis_result, download_link=improved_resume_path)
+            return render_template(
+                "result.html",
+                resume_text=resume_text,
+                analysis=analysis_result,
+                download_link=url_for("resume.download_resume")
+            )
         except Exception as e:
             flash(f"Error processing resume: {str(e)}", "danger")
             return redirect(url_for("resume.upload_resume"))
-    
-    return render_template("upload_resume.html")  # ✅ Ensure GET request returns a template
+
+    return render_template("upload_resume.html")
+
+@resume_bp.route("/download")
+@login_required
+def download_resume():
+    file_path = os.path.join(RESUME_FOLDER, "improved_resume.docx")
+
+    if os.path.exists(file_path):
+        return send_file(file_path, as_attachment=True)
+    else:
+        flash("File not found!", "danger")
+        return redirect(url_for("resume.upload_resume"))

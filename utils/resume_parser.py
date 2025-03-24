@@ -35,13 +35,11 @@ def process_resume(file_path):
         return "Error: File does not exist."
     ext = file_path.rsplit(".", 1)[-1].lower()
     if ext == "pdf":
-        resume_text = extract_text_from_pdf(file_path)
+        return extract_text_from_pdf(file_path)
     elif ext == "docx":
-        resume_text = extract_text_from_docx(file_path)
+        return extract_text_from_docx(file_path)
     else:
         return "Error: Unsupported file format."
-    print(f"🔍 Extracted Resume Text (First 200 chars): {resume_text[:200]}")
-    return resume_text
 
 # Set up logging
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -52,40 +50,64 @@ def match_resume_with_job(resume_text, job_description):
         return {"error": "Invalid resume text. Please upload a valid resume."}
     if not job_description.strip():
         return {"error": "Job description is missing."}
+
     try:
         model = genai.GenerativeModel(GEMINI_MODEL)
         prompt = f"""
-        Compare the following resume with the given job description and provide:
-        1. A match percentage (0-100%)
-        2. A list of missing skills
-        3. A short summary of improvements needed
-        4. A better-formatted version of the resume.
+        You are an AI-powered resume analyzer. Generate a structured response using Markdown format:
+        
+        **## Resume Analysis Report**
+        
+        **### 1. Match Score**  
+        - Provide a percentage score (0-100%) of how well the resume matches the job.
+        
+        **### 2. Missing Skills**  
+        - List the key skills missing from the resume in bullet format.
+        
+        **### 3. Strengths in Resume**  
+        - Highlight strengths like relevant experience, technical skills, and achievements.
+        
+        **### 4. Areas for Improvement**  
+        - List weaknesses like formatting issues, vague descriptions, or missing key details.
+        
+        **### 5. AI-Suggested Resume Rewrite**  
+        - Provide a cleaned-up, structured version of the resume with improvements.
 
-        Resume:
-        {resume_text}
+        ---
+        **Resume Content:**  
+        {resume_text}  
 
-        Job Description:
+        **Job Description:**  
         {job_description}
+        ---
         """
+
         response = model.generate_content(prompt)
-        
-        if response and hasattr(response, "text") and response.text.strip():
-            print(f"🔍 AI Response (First 200 chars): {response.text[:200]}")
-            return {"match_percentage": 85, "feedback": response.text.strip()}
-        
-        return {"error": "No valid response from AI. Response was empty."}
+
+        if response and hasattr(response, "text"):
+            formatted_feedback = response.text.replace("\n", "<br>")  # Format new lines as HTML
+            return {"match_percentage": 85, "feedback": formatted_feedback}
+
+        return {"error": "No valid response from AI."}
+
     except Exception as e:
-        logger.error(f"❌ Error during resume matching: {str(e)}")
+        logger.error(f"Error during resume matching: {str(e)}")
         return {"error": str(e)}
 
+
 def generate_improved_resume(resume_text, feedback):
+    resume_folder = "static/resumes"
+    if not os.path.exists(resume_folder):
+        os.makedirs(resume_folder)
+
+    file_path = os.path.join(resume_folder, "improved_resume.docx")
+
     doc = Document()
     doc.add_heading("Updated Resume", level=1)
     doc.add_paragraph(resume_text)
     doc.add_paragraph("\n\n### AI Suggestions:\n")
     doc.add_paragraph(feedback)
-    
-    file_path = "static/improved_resume.docx"
+
     doc.save(file_path)
     print(f"✅ Improved Resume Saved at: {file_path}")
     return file_path
