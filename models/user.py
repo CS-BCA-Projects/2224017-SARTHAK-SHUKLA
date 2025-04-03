@@ -15,6 +15,7 @@ class User(UserMixin):
         self.email = user_data["email"]
         self.username = user_data.get("username", "Unknown")  # ✅ Prevent KeyError
         self.password_hash = user_data.get("password_hash", "")
+        self.is_verified = user_data.get("is_verified", False)  # ✅ Added verification status
 
     @staticmethod
     def get_by_email(email):

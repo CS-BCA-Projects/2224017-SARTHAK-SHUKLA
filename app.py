@@ -19,9 +19,10 @@ def dashboard():
     return render_template("dashboard.html", user=current_user, resumes=user_resumes)  # ✅ Pass `resumes`
 
 if __name__ == "__main__":
-    # ✅ Import routes only after app is initialized
+    #  Import routes only after app is initialized
     from routes.auth_routes import auth_bp
     from routes.resume_routes import resume_bp
+    from routes.user_routes import User  #  Import User class
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(resume_bp, url_prefix="/resume")

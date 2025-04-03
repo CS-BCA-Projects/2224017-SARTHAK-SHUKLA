@@ -1,8 +1,12 @@
 import google.generativeai as genai
 import PyPDF2
+from docx.shared import Pt
+from docx.oxml import OxmlElement
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx import Document
 import os
 import logging
+import re  # Added for extracting match percentage
 
 from config import GEMINI_MODEL
 
@@ -42,7 +46,7 @@ def process_resume(file_path):
         return "Error: Unsupported file format."
 
 # Set up logging
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 def match_resume_with_job(resume_text, job_description):
@@ -58,19 +62,18 @@ def match_resume_with_job(resume_text, job_description):
         
         **## Resume Analysis Report**
         
-        **### 1. Match Score**  
-        - Provide a percentage score (0-100%) of how well the resume matches the job.
-        
-        **### 2. Missing Skills**  
+         **### 0. Match percentage of resume through job description **
+         
+        **### 1. Missing Skills**  
         - List the key skills missing from the resume in bullet format.
         
-        **### 3. Strengths in Resume**  
+        **### 2. Strengths in Resume**  
         - Highlight strengths like relevant experience, technical skills, and achievements.
         
-        **### 4. Areas for Improvement**  
+        **### 3. Areas for Improvement**  
         - List weaknesses like formatting issues, vague descriptions, or missing key details.
         
-        **### 5. AI-Suggested Resume Rewrite**  
+        **### 4. AI-Suggested Resume Rewrite**  
         - Provide a cleaned-up, structured version of the resume with improvements.
 
         ---
@@ -85,8 +88,8 @@ def match_resume_with_job(resume_text, job_description):
         response = model.generate_content(prompt)
 
         if response and hasattr(response, "text"):
-            formatted_feedback = response.text.replace("\n", "<br>")  # Format new lines as HTML
-            return {"match_percentage": 85, "feedback": formatted_feedback}
+            formatted_feedback = response.text.replace("\n", "<br>")  # Convert new lines for HTML display
+            return {"feedback": formatted_feedback}
 
         return {"error": "No valid response from AI."}
 
@@ -109,5 +112,5 @@ def generate_improved_resume(resume_text, feedback):
     doc.add_paragraph(feedback)
 
     doc.save(file_path)
-    print(f"✅ Improved Resume Saved at: {file_path}")
+    print(f" Improved Resume Saved at: {file_path}")
     return file_path
