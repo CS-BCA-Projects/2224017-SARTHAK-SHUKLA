@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🔒 Verify OTP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f0f2f5; }
+        .otp-container {
+            max-width: 400px; margin: 5% auto; padding: 30px;
+            background: white; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="otp-container">
+        <h3 class="text-center">📨 OTP Verification</h3>
+        <p class="text-center">Enter the OTP sent to your email</p>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            <div class="mb-3">
+                <label>OTP 🔢</label>
+                {{ form.otp(class="form-control", placeholder="Enter OTP") }}
+            </div>
+            <button class="btn btn-primary w-100">Verify ✅</button>
+        </form>
+        <div class="text-center mt-3">
+            <p>Didn't receive the code?</p>
+            <button id="resendBtn" class="btn btn-link" disabled>Resend OTP 🔁 <span id="timer">60</span>s</button>
+        </div>
+    </div>
+
+    <div class="text-center mt-3">
+        <p>Didn't receive the code?</p>
+        <form id="resendForm" method="POST" action="{{ url_for('auth.resend_otp') }}"></form>
+        <button id="resendBtn" class="btn btn-link" disabled type="button">Resend OTP 🔁 <span id="timer">60</span>s</button>
+    </div>
+    
+    <script>
+        let timer = 60;
+        const btn = document.getElementById('resendBtn');
+        const span = document.getElementById('timer');
+    
+        const countdown = setInterval(() => {
+            timer--;
+            span.innerText = timer;
+            if (timer <= 0) {
+                clearInterval(countdown);
+                btn.removeAttribute('disabled');
+                btn.innerText = "Resend OTP 🔁";
+                btn.onclick = function () {
+                    document.getElementById('resendForm').submit();
+                };
+            }
+        }, 1000);
+    </script>
+    
+</body>
+</html>

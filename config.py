@@ -1,25 +1,22 @@
 import os
 from dotenv import load_dotenv
-from flask_mail import Mail
 import google.generativeai as genai
 
-# Load environment variables
+# Load .env variables
 load_dotenv()
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY")
-    WTF_CSRF_ENABLED = True # ✅ Enable CSRF protection 
+    WTF_CSRF_ENABLED = True
 
-    # Flask-Mail Configuration
-    MAIL_SERVER = 'smtp.gmail.com'
-    MAIL_PORT = 587
-    MAIL_USE_TLS = True
-    MAIL_USERNAME = "abhinavpandey56393@gmail.com"  # Replace with your email
-    MAIL_PASSWORD  = "dwcgjgyvhqlvqgri"  # Use an app password
-    MAIL_DEFAULT_SENDER  = "abhinavpandey56393@gmail.com"
+    # Flask-Mail configuration (do NOT hardcode sensitive data)
+    MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+    MAIL_PORT = int(os.getenv("MAIL_PORT", 587))
+    MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "true").lower() == "true"
+    MAIL_USERNAME = os.getenv("MAIL_USERNAME")  # From .env
+    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")  # From .env
+    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER")  # From .env
 
-
+# Configure Gemini
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 GEMINI_MODEL = "gemini-1.5-flash-002"
-
-mail = Mail()  # Initialize Flask-Mail

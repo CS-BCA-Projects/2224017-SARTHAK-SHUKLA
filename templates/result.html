@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Resume Analysis Result</title>
     <style>
         body {
@@ -62,9 +63,10 @@
             margin: 0;
         }
 
-        .download-btn {
+        .btn {
             display: inline-block;
             margin-top: 25px;
+            margin-right: 15px;
             background-color: #007bff;
             color: white;
             padding: 12px 25px;
@@ -73,8 +75,16 @@
             font-weight: bold;
         }
 
-        .download-btn:hover {
+        .btn:hover {
             background-color: #0056b3;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
         }
 
         .section-title {
@@ -109,7 +119,7 @@
                 {% set items = lines[1:] %}
                 {% if 'Missing Skills' in title %}
                 <div class="feedback-block">
-                    <h3>Missing Skills</h3>
+                    <h3>🧩 Missing Skills</h3>
                     <ul>
                         {% for line in items %}
                             <li>{{ line.lstrip('-').strip() }}</li>
@@ -118,7 +128,7 @@
                 </div>
                 {% elif 'Strengths' in title %}
                 <div class="feedback-block">
-                    <h3>Strengths</h3>
+                    <h3>💪 Strengths</h3>
                     <ul>
                         {% for line in items %}
                             <li>{{ line.lstrip('-').strip() }}</li>
@@ -127,7 +137,7 @@
                 </div>
                 {% elif 'Areas for Improvement' in title %}
                 <div class="feedback-block">
-                    <h3>Areas for Improvement</h3>
+                    <h3>⚠️ Areas for Improvement</h3>
                     <ul>
                         {% for line in items %}
                             <li>{{ line.lstrip('-').strip() }}</li>
@@ -138,12 +148,17 @@
             {% endif %}
         {% endfor %}
     </div>
+    {% else %}
+        <p>No detailed feedback available.</p>
     {% endif %}
 
-    {# Download Button #}
-    {% if download_filename %}
-    <a href="{{ url_for('resume.download_resume', filename=download_filename) }}" class="download-btn">Download Improved Resume</a>
-    {% endif %}
+    {# Buttons #}
+    <div>
+        {% if download_filename %}
+        <a href="{{ url_for('resume.download_resume', filename=download_filename) }}" class="btn">⬇ Download Improved Resume</a>
+        {% endif %}
+        <a href="{{ url_for('resume.dashboard') }}" class="btn btn-secondary">⬅ Back to Dashboard</a>
+    </div>
 </div>
 </body>
 </html>

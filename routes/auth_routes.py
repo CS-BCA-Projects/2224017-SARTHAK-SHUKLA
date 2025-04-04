@@ -1,104 +1,131 @@
-from flask import Blueprint, request, flash, redirect, url_for, render_template
+from flask import Blueprint, request, flash, redirect, url_for, render_template, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, logout_user, login_required
-from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from flask_mail import Message
 from extensions import mongo, mail
 from models import User
 from forms import LoginForm, RegisterForm
-import os
+import random
+import datetime
+from forms import OTPForm
 
 auth_bp = Blueprint('auth', __name__)
 
-# Serializer for token generation
-serializer = URLSafeTimedSerializer(os.getenv("SECRET_KEY"))
+# 🔐 Helper: Generate and send OTP
+def generate_otp():
+    return str(random.randint(100000, 999999))
 
+def send_otp_email(email, otp):
+    msg = Message("🔐 Your OTP for Verification", recipients=[email])
+    msg.body = f"Hello!\n\nYour OTP for email verification is: {otp}\n\nIt is valid for 10 minutes.\n\n🤖 Resume Analyzer"
+    mail.send(msg)
+
+# 📝 Register Route
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegisterForm()
-    if request.method == 'POST':
-        if form.validate_on_submit():
-            email = form.email.data
-            password = generate_password_hash(form.password.data)
+    if form.validate_on_submit():
+        email = form.email.data
+        username = form.username.data
+        password_hash = generate_password_hash(form.password.data)
 
-            existing_user = mongo.db.users.find_one({'email': email})
-            if existing_user:
-                flash('Email already registered', 'danger')
-                return redirect(url_for('auth.register'))
+        if mongo.db.users.find_one({"email": email}):
+            flash("⚠️ Email already exists. Try logging in.", "warning")
+            return redirect(url_for("auth.register"))
 
-            # ✅ Save user in MongoDB with `is_verified=False`
-            mongo.db.users.insert_one({
-                'email': email, 
-                'password_hash': password, 
-                'is_verified': False
-            })
+        otp = generate_otp()
+        session["pending_user"] = {
+            "username": username,
+            "email": email,
+            "password_hash": password_hash,
+            "otp": otp,
+            "otp_sent_time": datetime.datetime.utcnow().isoformat()
+        }
 
-            # ✅ Send verification email
-            token = serializer.dumps(email, salt='email-confirm')
-            verify_url = url_for('auth.verify_email', token=token, _external=True)
-            msg = Message('Verify Your Email', recipients=[email])
-            msg.body = f'Click the link to verify your email: {verify_url}'
+        try:
+            send_otp_email(email, otp)
+            flash("✅ OTP sent to your email!", "success")
+        except:
+            flash("❌ Failed to send OTP. Please try again.", "danger")
 
+        return redirect(url_for("auth.verify_otp"))
+
+    return render_template("register.html", form=form)
+
+# 🔁 Resend OTP
+@auth_bp.route("/resend-otp", methods=["POST"])
+def resend_otp():
+    user = session.get("pending_user")
+    if user:
+        last_sent = datetime.datetime.fromisoformat(user["otp_sent_time"])
+        now = datetime.datetime.utcnow()
+        if (now - last_sent).total_seconds() < 60:
+            flash("⏳ Please wait before resending the OTP.", "warning")
+        else:
+            new_otp = generate_otp()
+            user["otp"] = new_otp
+            user["otp_sent_time"] = now.isoformat()
+            session["pending_user"] = user
             try:
-                mail.send(msg)
-                print(f"Verification email sent to {email}")  # ✅ Debugging
-                flash('Registration successful! A verification email has been sent.', 'success')
-            except Exception as e:
-                print(f"Error sending email: {e}")  # ✅ Debugging
-                flash('Error sending verification email. Try again later.', 'danger')
+                send_otp_email(user["email"], new_otp)
+                flash("📩 OTP resent to your email.", "success")
+            except:
+                flash("❌ Could not resend OTP. Try again.", "danger")
+    return redirect(url_for("auth.verify_otp"))
 
-            return redirect(url_for('auth.login'))  # ✅ Redirect only to login page
+# ✅ OTP Verification
+@auth_bp.route('/verify-otp', methods=['GET', 'POST'])
+def verify_otp():
+    form = OTPForm()
+    if form.validate_on_submit():
+        entered_otp = form.otp.data
+        user_data = session.get('pending_user')
+
+        if not user_data:
+            flash("⚠️ Session expired. Please register again.", "danger")
+            return redirect(url_for("auth.register"))
+
+        if entered_otp == user_data["otp"]:
+            mongo.db.users.insert_one({
+                "username": user_data["username"],
+                "email": user_data["email"],
+                "password_hash": user_data["password_hash"],
+                "is_verified": True
+            })
+            session.pop("pending_user", None)
+            flash("🎉 Registration complete! You can now log in.", "success")
+            return redirect(url_for("auth.login"))
         else:
-            print("Form validation failed.")  # ✅ Debugging
-    
-    return render_template('register.html', form=form)
+            flash("❌ Invalid OTP. Please try again.", "danger")
 
+    return render_template("otp_verification.html", form=form)
 
-@auth_bp.route('/verify/<token>')
-def verify_email(token):
-    try:
-        email = serializer.loads(token, salt='email-confirm', max_age=3600)  # Token expires in 1 hour
-        user = mongo.db.users.find_one({'email': email})
-
-        if user and not user.get('is_verified', False):
-            mongo.db.users.update_one({'email': email}, {'$set': {'is_verified': True}})
-            flash('Email verified! You can now log in.', 'success')
-        else:
-            flash('Invalid or already verified email.', 'warning')
-    except SignatureExpired:
-        flash('Verification link expired. Please register again.', 'danger')
-    except BadSignature:
-        flash('Invalid verification link.', 'danger')
-
-    return redirect(url_for('auth.login'))
-
-@auth_bp.route('/login', methods=['GET', 'POST'])
+# 🔐 Login Route
+@auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
         email = form.email.data
         password = form.password.data
-        user = mongo.db.users.find_one({'email': email})
+        user = mongo.db.users.find_one({"email": email})
 
-        if user:
-            if not user.get('is_verified', False):  # ✅ Ensure email is verified
-                flash('Your email is not verified. Please check your inbox.', 'warning')
-                return redirect(url_for('auth.login'))
-
-            if check_password_hash(user['password_hash'], password):
-                user_obj = User(user)  # ✅ Pass entire user dictionary to `User`
-                login_user(user_obj)
-                flash('Login successful!', 'success')
-                return redirect(url_for('dashboard'))
-            else:
-                flash('Incorrect password. Please try again.', 'danger')
+        if not user:
+            flash("❌ No account found with this email.", "danger")
+        elif not user.get("is_verified", False):
+            flash("⚠️ Account not verified. Please register again.", "warning")
+        elif not check_password_hash(user["password_hash"], password):
+            flash("🔑 Incorrect password.", "danger")
         else:
-            flash('Email not found. Please register first.', 'danger')
+            login_user(User(user))
+            flash("✅ Login successful!", "success")
+            return redirect(url_for("resume.dashboard"))
 
-    return render_template('login.html', form=form)
+    return render_template("login.html", form=form)
+
+# 🚪 Logout Route
 @auth_bp.route('/logout')
 @login_required
 def logout():
     logout_user()
-    flash('You have been logged out.', 'info')
+    flash("👋 Logged out successfully.", "info")
     return redirect(url_for('auth.login'))
