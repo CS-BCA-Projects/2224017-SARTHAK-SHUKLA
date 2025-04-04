@@ -2,39 +2,148 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resume Analysis Result</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <style>
-        .feedback-content {
-            white-space: pre-line; /* Preserve formatting */
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 5px;
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f8fc;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .score-container {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .score-red {
+            background-color: #e74c3c;
+        }
+        .score-yellow {
+            background-color: #f1c40f;
+            color: black;
+        }
+        .score-green {
+            background-color: #2ecc71;
+        }
+
+        .feedback-section {
+            margin-top: 30px;
+        }
+
+        .feedback-block {
+            margin-bottom: 25px;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 5px solid #007bff;
+        }
+
+        .feedback-block h3 {
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+
+        .feedback-block ul {
+            list-style-type: disc;
+            padding-left: 20px;
+            margin: 0;
+        }
+
+        .download-btn {
+            display: inline-block;
+            margin-top: 25px;
+            background-color: #007bff;
+            color: white;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        .download-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 26px;
+            color: #333;
+            margin-bottom: 20px;
         }
     </style>
 </head>
-<body class="bg-light">
-    <div class="container mt-5">
-        <div class="card shadow-lg p-4">
-            <h2 class="text-center">Resume Analysis Report</h2>
-            <div class="alert alert-info mt-3">
-                <h5>Analysis Summary</h5>
-                <p><strong>Feedback:</strong></p>
-                <div class="feedback-content">
-                    {% autoescape false %}
-                        {{ analysis.feedback }}
-                    {% endautoescape %}
+<body>
+<div class="container">
+    <h2 class="section-title">Resume Analysis Result</h2>
+
+    {# Match Score with color #}
+    {% if match_percentage <= 30 %}
+        <div class="score-container score-red">Match Score: {{ match_percentage }}%</div>
+    {% elif match_percentage <= 70 %}
+        <div class="score-container score-yellow">Match Score: {{ match_percentage }}%</div>
+    {% else %}
+        <div class="score-container score-green">Match Score: {{ match_percentage }}%</div>
+    {% endif %}
+
+    {# Feedback Section #}
+    {% if feedback %}
+    <div class="feedback-section">
+        {% set parts = feedback.split('\n\n') %}
+        {% for part in parts %}
+            {% set lines = part.strip().split('\n') %}
+            {% if lines %}
+                {% set title = lines[0] %}
+                {% set items = lines[1:] %}
+                {% if 'Missing Skills' in title %}
+                <div class="feedback-block">
+                    <h3>Missing Skills</h3>
+                    <ul>
+                        {% for line in items %}
+                            <li>{{ line.lstrip('-').strip() }}</li>
+                        {% endfor %}
+                    </ul>
                 </div>
-            </div>
-            <div class="text-center mt-3">
-                <a href="{{ url_for('resume.upload_resume') }}" class="btn btn-primary">Upload Another Resume</a>
-                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
-                {% if download_link %}
-                    <a href="{{ download_link }}" class="btn btn-success" download>Download Improved Resume</a>
+                {% elif 'Strengths' in title %}
+                <div class="feedback-block">
+                    <h3>Strengths</h3>
+                    <ul>
+                        {% for line in items %}
+                            <li>{{ line.lstrip('-').strip() }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% elif 'Areas for Improvement' in title %}
+                <div class="feedback-block">
+                    <h3>Areas for Improvement</h3>
+                    <ul>
+                        {% for line in items %}
+                            <li>{{ line.lstrip('-').strip() }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
                 {% endif %}
-            </div>
-        </div>
+            {% endif %}
+        {% endfor %}
     </div>
+    {% endif %}
+
+    {# Download Button #}
+    {% if download_filename %}
+    <a href="{{ url_for('resume.download_resume', filename=download_filename) }}" class="download-btn">Download Improved Resume</a>
+    {% endif %}
+</div>
 </body>
 </html>

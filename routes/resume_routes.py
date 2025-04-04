@@ -5,6 +5,7 @@ import uuid
 from werkzeug.utils import secure_filename
 from utils.resume_parser import process_resume, match_resume_with_job, generate_improved_resume
 from extensions import mongo
+from markupsafe import escape
 
 resume_bp = Blueprint("resume", __name__)
 
@@ -56,24 +57,21 @@ def upload_resume():
         try:
             resume_text = process_resume(file_path)
             analysis_result = match_resume_with_job(resume_text, job_description)
-            improved_resume_path = generate_improved_resume(resume_text, analysis_result)
+            match_percentage = analysis_result.get("match_percentage", 0)
+            feedback = escape(analysis_result.get("feedback", "No feedback available."))  # ✅ Prevent XSS
 
-            # ✅ Store analysis in MongoDB
-            resume_analysis = {
-                "user_id": current_user.id,
-                "resume_text": resume_text,
-                "job_description": job_description,
-                "match_score": analysis_result.get("match_percentage", 0),
-                "feedback": analysis_result.get("feedback", "")
-            }
-            mongo.db.resume_analysis.insert_one(resume_analysis)
-
+            # ✅ Generate improved resume with unique filename
+            improved_filename = f"improved_{uuid.uuid4()}.docx"
+            improved_resume_path = os.path.join(RESUME_FOLDER, improved_filename)
+            generate_improved_resume(resume_text, analysis_result, improved_resume_path)
+            
             flash("Resume uploaded and analyzed successfully!", "success")
             return render_template(
                 "result.html",
                 resume_text=resume_text,
-                analysis=analysis_result,
-                download_link=url_for("resume.download_resume")
+                match_percentage=match_percentage,
+                feedback=feedback,
+                download_filename=improved_filename  # ✅ Pass unique filename
             )
         except Exception as e:
             flash(f"Error processing resume: {str(e)}", "danger")
@@ -81,11 +79,10 @@ def upload_resume():
 
     return render_template("upload_resume.html")
 
-@resume_bp.route("/download")
+@resume_bp.route("/download/<filename>")
 @login_required
-def download_resume():
-    file_path = os.path.join(RESUME_FOLDER, "improved_resume.docx")
-
+def download_resume(filename):
+    file_path = os.path.join(RESUME_FOLDER, filename)
     if os.path.exists(file_path):
         return send_file(file_path, as_attachment=True)
     else:

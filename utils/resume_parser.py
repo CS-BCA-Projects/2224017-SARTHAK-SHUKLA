@@ -1,116 +1,155 @@
-import google.generativeai as genai
+import docx2txt
 import PyPDF2
-from docx.shared import Pt
-from docx.oxml import OxmlElement
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
-from docx import Document
+import google.generativeai as genai
 import os
-import logging
-import re  # Added for extracting match percentage
+import re
+from dotenv import load_dotenv
+import docx
+from docx.shared import RGBColor
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from config import GEMINI_MODEL  # Import model name from config
 
-from config import GEMINI_MODEL
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-def extract_text_from_pdf(file_path):
-    text = []
+genai.configure(api_key=GEMINI_API_KEY)
+
+# Initialize Gemini client
+def call_gemini(prompt):
     try:
-        with open(file_path, "rb") as pdf_file:
-            reader = PyPDF2.PdfReader(pdf_file)
+        model = genai.GenerativeModel(GEMINI_MODEL)
+        response = model.generate_content(prompt)
+        return response.text.strip() if response and hasattr(response, "text") else "Error: No response from Gemini."
+    except Exception as e:
+        return f"Error calling Gemini API: {str(e)}"
+
+# Extract text from PDF
+def extract_text_from_pdf(pdf_path):
+    text = ""
+    try:
+        with open(pdf_path, "rb") as file:
+            reader = PyPDF2.PdfReader(file)
             for page in reader.pages:
                 extracted_text = page.extract_text()
                 if extracted_text:
-                    text.append(extracted_text)
-        extracted_text = "\n".join(text).strip()
-        print(f"🔍 Extracted PDF Text (First 200 chars): {extracted_text[:200]}")
-        return extracted_text if extracted_text else "Error: Unable to extract text from PDF."
+                    text += extracted_text + "\n"
     except Exception as e:
-        return f"Error reading PDF: {str(e)}"
+        return f"Error extracting text from PDF: {str(e)}"
+    return text.strip()
 
-def extract_text_from_docx(file_path):
+# Extract text from DOCX
+def extract_text_from_docx(docx_path):
     try:
-        doc = Document(file_path)
-        text = "\n".join([para.text for para in doc.paragraphs])
-        print(f"🔍 Extracted DOCX Text (First 200 chars): {text[:200]}")
-        return text.strip() if text else "Error: Unable to extract text from DOCX."
+        return docx2txt.process(docx_path).strip()
     except Exception as e:
-        return f"Error reading DOCX: {str(e)}"
+        return f"Error extracting text from DOCX: {str(e)}"
 
+# Process Resume
 def process_resume(file_path):
-    if not os.path.exists(file_path):
-        return "Error: File does not exist."
-    ext = file_path.rsplit(".", 1)[-1].lower()
-    if ext == "pdf":
+    if file_path.endswith(".pdf"):
         return extract_text_from_pdf(file_path)
-    elif ext == "docx":
+    elif file_path.endswith(".docx"):
         return extract_text_from_docx(file_path)
-    else:
-        return "Error: Unsupported file format."
+    return "Unsupported file format"
 
-# Set up logging
-logging.basicConfig(level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
-
+# Format feedback into HTML for result page
+def format_feedback(raw_feedback):
+    """
+    Cleans the feedback without adding HTML tags so the Jinja template can split and match section titles.
+    """
+    return raw_feedback.strip()
+# Match Resume with Job Description
 def match_resume_with_job(resume_text, job_description):
-    if not resume_text or resume_text.startswith("Error:"):
-        return {"error": "Invalid resume text. Please upload a valid resume."}
-    if not job_description.strip():
-        return {"error": "Job description is missing."}
+    response = call_gemini(f"""
+    Analyze the following resume and compare it to the given job description.
+    
+    Resume:
+    {resume_text}
 
-    try:
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        prompt = f"""
-        You are an AI-powered resume analyzer. Generate a structured response using Markdown format:
-        
-        **## Resume Analysis Report**
-        
-         **### 0. Match percentage of resume through job description **
-         
-        **### 1. Missing Skills**  
-        - List the key skills missing from the resume in bullet format.
-        
-        **### 2. Strengths in Resume**  
-        - Highlight strengths like relevant experience, technical skills, and achievements.
-        
-        **### 3. Areas for Improvement**  
-        - List weaknesses like formatting issues, vague descriptions, or missing key details.
-        
-        **### 4. AI-Suggested Resume Rewrite**  
-        - Provide a cleaned-up, structured version of the resume with improvements.
+    Job Description:
+    {job_description}
 
-        ---
-        **Resume Content:**  
-        {resume_text}  
+    Provide structured feedback strictly in this format:
+    
+    Match Score: [X]% (Provide a numeric score based on the resume match)
+    
+    Missing Skills:
+    - List missing technical and soft skills relevant to the job.
+    
+    Strengths:
+    - Highlight key skills and projects that align with the job description.
+    
+    Areas for Improvement:
+    - Suggest specific improvements to align better with the job role.
+    
+    Keep the response structured and avoid unnecessary explanations.
+    """)
 
-        **Job Description:**  
-        {job_description}
-        ---
-        """
+    match_score = re.search(r"Match Score: (\d+)%", response)
+    match_percentage = int(match_score.group(1)) if match_score else 0
 
-        response = model.generate_content(prompt)
+    formatted_feedback = format_feedback(response)
 
-        if response and hasattr(response, "text"):
-            formatted_feedback = response.text.replace("\n", "<br>")  # Convert new lines for HTML display
-            return {"feedback": formatted_feedback}
+    return {
+        "match_percentage": match_percentage,
+        "feedback": formatted_feedback
+    }
 
-        return {"error": "No valid response from AI."}
+# Generate Improved Resume
+def generate_improved_resume(resume_text, analysis_result, output_path):
+    improved_text = call_gemini(f"""
+    Based on the following resume and analysis feedback, generate an improved version:
+    
+    Resume:
+    {resume_text}
+    
+    Analysis Feedback:
+    {analysis_result}
+    
+    Structure it in this order:
+    1. Professional Summary
+    2. Skills
+    3. Experience
+    4. Education
+    5. Certifications (if any)
 
-    except Exception as e:
-        logger.error(f"Error during resume matching: {str(e)}")
-        return {"error": str(e)}
+    Make sure each section is well-formatted, uses bullet points where needed, and uses clear headings.
+    """)
 
+    doc = docx.Document()
 
-def generate_improved_resume(resume_text, feedback):
-    resume_folder = "static/resumes"
-    if not os.path.exists(resume_folder):
-        os.makedirs(resume_folder)
+    # Title
+    title = doc.add_heading("Improved Resume", level=1)
+    title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
-    file_path = os.path.join(resume_folder, "improved_resume.docx")
+    # Define known section headers
+    sections = ["Professional Summary", "Skills", "Experience", "Education", "Certifications"]
+    section_found = None
 
-    doc = Document()
-    doc.add_heading("Updated Resume", level=1)
-    doc.add_paragraph(resume_text)
-    doc.add_paragraph("\n\n### AI Suggestions:\n")
-    doc.add_paragraph(feedback)
+    for paragraph in improved_text.split("\n\n"):
+        lines = paragraph.strip().split("\n")
+        if not lines:
+            continue
 
-    doc.save(file_path)
-    print(f" Improved Resume Saved at: {file_path}")
-    return file_path
+        first_line = lines[0].strip()
+
+        # Check if it starts with a known section
+        if any(section.lower() in first_line.lower() for section in sections):
+            section_found = first_line
+            heading = doc.add_paragraph()
+            run = heading.add_run(first_line)
+            run.bold = True
+            run.font.color.rgb = RGBColor(0, 102, 204)
+            continue
+
+        # If section is found, add bullets under it
+        for line in lines:
+            line = line.strip()
+            if line.startswith("-") or line.startswith("•"):
+                doc.add_paragraph(line.lstrip("-• ").strip(), style='List Bullet')
+            elif line:  # Paragraph content
+                doc.add_paragraph(line)
+
+    # Save the improved document
+    doc.save(output_path)
+    return output_path
