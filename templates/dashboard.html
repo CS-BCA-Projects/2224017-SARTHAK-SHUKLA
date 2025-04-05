@@ -120,10 +120,11 @@
 <body>
 
 <!-- Sidebar -->
+<!-- Sidebar -->
 <div id="sidebar">
     <h5 class="text-center text-white mb-4">📊 Dashboard</h5>
-    <a href="#">🏠 Home</a>
-    <a href="#">📄 Upload Resume</a>
+    <a href="{{ url_for('home') }}">🏠 Intro Page</a>
+    <a href="{{ url_for('resume.history') }}">📚 Analysis History</a>
     <a href="{{ url_for('auth.logout') }}">🚪 Logout</a>
 </div>
 

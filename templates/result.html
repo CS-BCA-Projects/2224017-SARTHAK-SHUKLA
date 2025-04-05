@@ -16,7 +16,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        /* Base styling */
         body {
             font-family: 'Poppins', sans-serif;
             background: #f4f7f6;
@@ -45,6 +44,28 @@
             letter-spacing: 2px;
         }
 
+        .info-card {
+            background-color: #f0f4ff;
+            padding: 20px;
+            margin: 25px 0 35px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 123, 255, 0.1);
+        }
+
+        .info-row {
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+
+        .info-row i {
+            margin-right: 10px;
+            color: #007bff;
+        }
+
+        .info-row strong {
+            font-weight: 600;
+        }
+
         .score-container {
             padding: 25px;
             margin-bottom: 30px;
@@ -61,18 +82,9 @@
             transform: scale(1.05);
         }
 
-        .score-red {
-            background: #e74c3c;
-        }
-
-        .score-yellow {
-            background: #f1c40f;
-            color: black;
-        }
-
-        .score-green {
-            background: #2ecc71;
-        }
+        .score-red { background: #e74c3c; }
+        .score-yellow { background: #f1c40f; color: black; }
+        .score-green { background: #2ecc71; }
 
         .feedback-section {
             margin-top: 30px;
@@ -152,39 +164,17 @@
             transform: scale(1.05);
         }
 
-        /* Responsive Design */
         @media (max-width: 768px) {
-            .container {
-                padding: 20px;
-            }
-
-            .section-title {
-                font-size: 28px;
-            }
-
-            .score-container {
-                font-size: 20px;
-            }
-
-            .btn {
-                width: 100%;
-                text-align: center;
-            }
-
-            .chart-container {
-                width: 100%;
-                margin: 0;
-            }
+            .container { padding: 20px; }
+            .section-title { font-size: 28px; }
+            .score-container { font-size: 20px; }
+            .btn { width: 100%; }
+            .chart-container { width: 100%; margin: 0; }
         }
 
-        /* Fade-in animation for the entire page */
         @keyframes fadeIn {
-            0% {
-                opacity: 0;
-            }
-            100% {
-                opacity: 1;
-            }
+            0% { opacity: 0; }
+            100% { opacity: 1; }
         }
     </style>
 </head>
@@ -192,17 +182,24 @@
 <div class="container">
     <h2 class="section-title">Resume Analysis Result</h2>
 
-    <!-- Match Percentage Section -->
+    <!-- Resume Holder Info -->
+    <div class="info-card">
+        <div class="info-row"><i class="fas fa-user"></i> <strong>Name:</strong> {{ Name }}</div>
+        <div class="info-row"><i class="fas fa-envelope"></i> <strong>Email:</strong> <span>{{ email }}</span></div>
+        <div class="info-row"><i class="fas fa-phone"></i> <strong>Phone:</strong> <span>{{ phone }}</span></div>
+    </div>
+
+    <!-- Match Score Section -->
     {% if match_percentage is not none %}
-        {% if match_percentage <= 30 %}
+        {% if match_percentage <= 50 %}
             <div class="score-container score-red">Match Score: {{ match_percentage }}%</div>
-        {% elif match_percentage <= 70 %}
+        {% elif match_percentage <= 80 %}
             <div class="score-container score-yellow">Match Score: {{ match_percentage }}%</div>
         {% else %}
             <div class="score-container score-green">Match Score: {{ match_percentage }}%</div>
         {% endif %}
 
-        <!-- Pie Chart Section -->
+        <!-- Pie Chart -->
         <div class="chart-wrapper">
             <div class="chart-container">
                 <canvas id="matchChart"></canvas>
@@ -212,7 +209,6 @@
         <script>
             const matchScore = {{ match_percentage }};
             const missingScore = 100 - matchScore;
-
             const matchCtx = document.getElementById('matchChart').getContext('2d');
             new Chart(matchCtx, {
                 type: 'pie',
@@ -226,9 +222,7 @@
                 },
                 options: {
                     plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
+                        legend: { position: 'bottom' }
                     }
                 }
             });
@@ -236,6 +230,8 @@
     {% else %}
         <p>⚠️ No match percentage available.</p>
     {% endif %}
+
+    <!-- Feedback Section -->
     <div class="feedback-section">
         {% if feedback %}
             {% set parts = feedback.split('\n\n') %}
@@ -258,8 +254,8 @@
             <p>No detailed feedback available.</p>
         {% endif %}
     </div>
-    
-    <!-- Buttons Section -->
+
+    <!-- Buttons -->
     <div>
         {% if download_filename %}
         <a href="{{ url_for('resume.download_resume', filename=download_filename) }}" class="btn">⬇ Download Improved Resume</a>
