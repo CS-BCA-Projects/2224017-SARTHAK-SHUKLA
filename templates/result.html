@@ -3,41 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Resume Analysis Result - Get insights and feedback on your resume with match percentages, strengths, and areas for improvement.">
+    <meta name="author" content="Your Company">
     <title>Resume Analysis Result</title>
+
+    <!-- Google Fonts for modern typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <!-- Icon Library for modern icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
+        /* Base styling */
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f8fc;
+            font-family: 'Poppins', sans-serif;
+            background: #f4f7f6;
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            color: #333;
         }
+
         .container {
             max-width: 900px;
-            margin: auto;
-            background-color: #ffffff;
+            margin: 40px auto;
+            background-color: #fff;
             padding: 30px;
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 1s ease-in-out;
+        }
+
+        .section-title {
+            font-size: 34px;
+            font-weight: 600;
+            text-align: center;
+            color: #007bff;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
         }
 
         .score-container {
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border-radius: 10px;
             color: white;
-            font-size: 20px;
+            font-size: 24px;
             font-weight: bold;
             text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease-in-out;
         }
+
+        .score-container:hover {
+            transform: scale(1.05);
+        }
+
         .score-red {
-            background-color: #e74c3c;
+            background: #e74c3c;
         }
+
         .score-yellow {
-            background-color: #f1c40f;
+            background: #f1c40f;
             color: black;
         }
+
         .score-green {
-            background-color: #2ecc71;
+            background: #2ecc71;
         }
 
         .feedback-section {
@@ -47,36 +81,47 @@
         .feedback-block {
             margin-bottom: 25px;
             background: #f9f9f9;
-            padding: 20px;
+            padding: 25px;
             border-radius: 8px;
             border-left: 5px solid #007bff;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .feedback-block:hover {
+            transform: translateX(10px);
         }
 
         .feedback-block h3 {
             color: #007bff;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
+            font-size: 24px;
         }
 
         .feedback-block ul {
             list-style-type: disc;
-            padding-left: 20px;
-            margin: 0;
+            padding-left: 25px;
+            font-size: 16px;
+            line-height: 1.8;
+            color: #555;
         }
 
         .btn {
             display: inline-block;
-            margin-top: 25px;
-            margin-right: 15px;
+            margin-top: 30px;
             background-color: #007bff;
             color: white;
             padding: 12px 25px;
             text-decoration: none;
             border-radius: 6px;
             font-weight: bold;
+            text-align: center;
+            transition: background-color 0.3s ease, transform 0.3s ease;
         }
 
         .btn:hover {
             background-color: #0056b3;
+            transform: translateY(-5px);
         }
 
         .btn-secondary {
@@ -87,11 +132,59 @@
             background-color: #5a6268;
         }
 
-        .section-title {
-            text-align: center;
-            font-size: 26px;
-            color: #333;
-            margin-bottom: 20px;
+        .chart-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-top: 40px;
+        }
+
+        .chart-container {
+            width: 350px;
+            margin: 0 15px;
+        }
+
+        .chart-container canvas {
+            border-radius: 8px;
+            transition: transform 0.3s ease;
+        }
+
+        .chart-container:hover canvas {
+            transform: scale(1.05);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            .section-title {
+                font-size: 28px;
+            }
+
+            .score-container {
+                font-size: 20px;
+            }
+
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+
+            .chart-container {
+                width: 100%;
+                margin: 0;
+            }
+        }
+
+        /* Fade-in animation for the entire page */
+        @keyframes fadeIn {
+            0% {
+                opacity: 0;
+            }
+            100% {
+                opacity: 1;
+            }
         }
     </style>
 </head>
@@ -99,60 +192,74 @@
 <div class="container">
     <h2 class="section-title">Resume Analysis Result</h2>
 
-    {# Match Score with color #}
-    {% if match_percentage <= 30 %}
-        <div class="score-container score-red">Match Score: {{ match_percentage }}%</div>
-    {% elif match_percentage <= 70 %}
-        <div class="score-container score-yellow">Match Score: {{ match_percentage }}%</div>
-    {% else %}
-        <div class="score-container score-green">Match Score: {{ match_percentage }}%</div>
-    {% endif %}
+    <!-- Match Percentage Section -->
+    {% if match_percentage is not none %}
+        {% if match_percentage <= 30 %}
+            <div class="score-container score-red">Match Score: {{ match_percentage }}%</div>
+        {% elif match_percentage <= 70 %}
+            <div class="score-container score-yellow">Match Score: {{ match_percentage }}%</div>
+        {% else %}
+            <div class="score-container score-green">Match Score: {{ match_percentage }}%</div>
+        {% endif %}
 
-    {# Feedback Section #}
-    {% if feedback %}
+        <!-- Pie Chart Section -->
+        <div class="chart-wrapper">
+            <div class="chart-container">
+                <canvas id="matchChart"></canvas>
+            </div>
+        </div>
+
+        <script>
+            const matchScore = {{ match_percentage }};
+            const missingScore = 100 - matchScore;
+
+            const matchCtx = document.getElementById('matchChart').getContext('2d');
+            new Chart(matchCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Match %', 'Unmatched %'],
+                    datasets: [{
+                        data: [matchScore, missingScore],
+                        backgroundColor: ['#36A2EB', '#FF6384'],
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        </script>
+    {% else %}
+        <p>⚠️ No match percentage available.</p>
+    {% endif %}
     <div class="feedback-section">
-        {% set parts = feedback.split('\n\n') %}
-        {% for part in parts %}
-            {% set lines = part.strip().split('\n') %}
-            {% if lines %}
-                {% set title = lines[0] %}
-                {% set items = lines[1:] %}
-                {% if 'Missing Skills' in title %}
-                <div class="feedback-block">
-                    <h3>🧩 Missing Skills</h3>
-                    <ul>
-                        {% for line in items %}
-                            <li>{{ line.lstrip('-').strip() }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% elif 'Strengths' in title %}
-                <div class="feedback-block">
-                    <h3>💪 Strengths</h3>
-                    <ul>
-                        {% for line in items %}
-                            <li>{{ line.lstrip('-').strip() }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% elif 'Areas for Improvement' in title %}
-                <div class="feedback-block">
-                    <h3>⚠️ Areas for Improvement</h3>
-                    <ul>
-                        {% for line in items %}
-                            <li>{{ line.lstrip('-').strip() }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
+        {% if feedback %}
+            {% set parts = feedback.split('\n\n') %}
+            {% for part in parts %}
+                {% set lines = part.strip().split('\n') %}
+                {% if lines %}
+                    {% set title = lines[0] %}
+                    {% set items = lines[1:] %}
+                    <div class="feedback-block">
+                        <h3><i class="fas fa-puzzle-piece"></i> {{ title }}</h3>
+                        <ul>
+                            {% for line in items %}
+                                <li>{{ line.lstrip('-').strip() }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
                 {% endif %}
-            {% endif %}
-        {% endfor %}
+            {% endfor %}
+        {% else %}
+            <p>No detailed feedback available.</p>
+        {% endif %}
     </div>
-    {% else %}
-        <p>No detailed feedback available.</p>
-    {% endif %}
-
-    {# Buttons #}
+    
+    <!-- Buttons Section -->
     <div>
         {% if download_filename %}
         <a href="{{ url_for('resume.download_resume', filename=download_filename) }}" class="btn">⬇ Download Improved Resume</a>

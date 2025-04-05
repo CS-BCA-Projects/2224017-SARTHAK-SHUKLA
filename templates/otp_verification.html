@@ -29,16 +29,14 @@
             </div>
             <button class="btn btn-primary w-100">Verify ✅</button>
         </form>
+
         <div class="text-center mt-3">
             <p>Didn't receive the code?</p>
-            <button id="resendBtn" class="btn btn-link" disabled>Resend OTP 🔁 <span id="timer">60</span>s</button>
+            <form id="resendForm" method="POST" action="{{ url_for('auth.resend_otp') }}">
+                {{ form.hidden_tag() }}
+                <button id="resendBtn" class="btn btn-link" disabled type="button">Resend OTP 🔁 <span id="timer">60</span>s</button>
+            </form>
         </div>
-    </div>
-
-    <div class="text-center mt-3">
-        <p>Didn't receive the code?</p>
-        <form id="resendForm" method="POST" action="{{ url_for('auth.resend_otp') }}"></form>
-        <button id="resendBtn" class="btn btn-link" disabled type="button">Resend OTP 🔁 <span id="timer">60</span>s</button>
     </div>
     
     <script>
@@ -59,6 +57,5 @@
             }
         }, 1000);
     </script>
-    
 </body>
 </html>

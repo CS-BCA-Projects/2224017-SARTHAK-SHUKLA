@@ -1,10 +1,14 @@
 import os
+import logging
 from flask import Flask, render_template
 from dotenv import load_dotenv
 from flask_login import current_user, login_required
 
 from extensions import mongo, login_manager, mail, csrf, init_db
 from config import Config
+
+# Suppress PyMongo heartbeat debug logs
+logging.getLogger("pymongo").setLevel(logging.WARNING)
 
 # Load environment variables
 load_dotenv()
