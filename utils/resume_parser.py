@@ -225,7 +225,10 @@ Use bullet points, emoji markers, and keep the tone professional.
 Quantify achievements and improve readability. Keep it stylish, clean, and modern.
 """)
 
-    # Replace double asterisks for headings and single for bullet points
+    # Normalize subheading bullets like "* <<HEADING:...>>"
+    improved_text = re.sub(r"\*\s*(<<HEADING:.*?>>)", r"\1", improved_text)
+
+    # Convert bold headings to placeholder format
     improved_text = re.sub(r"\*\*(.+?)\*\*", r"<<HEADING:\1>>", improved_text)
     improved_text = re.sub(r"\*(.+?)\*", r"- \1", improved_text)
 
@@ -242,8 +245,10 @@ Quantify achievements and improve readability. Keep it stylish, clean, and moder
 
         for line in lines:
             line = line.strip()
+            if not line:
+                continue
 
-            # Solid heading
+            # Top-level section heading
             if line.startswith("<<HEADING:") and line.endswith(">>"):
                 heading_text = line.replace("<<HEADING:", "").replace(">>", "").strip()
                 para = doc.add_paragraph()
@@ -251,14 +256,26 @@ Quantify achievements and improve readability. Keep it stylish, clean, and moder
                 run.bold = True
                 run.font.size = Pt(14)
                 run.font.color.rgb = RGBColor(0, 102, 204)
-                para.paragraph_format.space_before = Pt(10)
+                para.paragraph_format.space_before = Pt(14)
+                para.paragraph_format.space_after = Pt(4)
+
+            # Sub-section heading (e.g., Problem Solved:)
+            elif re.match(r"^<<HEADING:.+?>>", line):
+                subheading_text = re.sub(r"<<HEADING:(.+?)>>", r"\1", line).strip()
+                para = doc.add_paragraph()
+                run = para.add_run(subheading_text + ":")
+                run.bold = True
+                run.font.size = Pt(11)
+                run.font.color.rgb = RGBColor(80, 80, 80)
+                para.paragraph_format.space_before = Pt(6)
+                para.paragraph_format.space_after = Pt(2)
 
             # Bullet point
-            elif line.startswith("-") or line.startswith("•"):
-                doc.add_paragraph(line.lstrip("-• ").strip(), style="List Bullet")
+            elif line.startswith("-") or line.startswith("•") or line.startswith("*"):
+                doc.add_paragraph(line.lstrip("-•* ").strip(), style="List Bullet")
 
             # Regular line
-            elif line:
+            else:
                 para = doc.add_paragraph(line)
                 para.paragraph_format.space_after = Pt(6)
 

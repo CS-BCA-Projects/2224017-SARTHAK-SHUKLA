@@ -187,6 +187,33 @@ def history():
 
     return render_template("history.html", analysis_entries=analysis_entries)
 
+@resume_bp.route("/view-result/<entry_id>")
+@login_required
+def view_result(entry_id):
+    entry = mongo.db.analysis.find_one({"_id": ObjectId(entry_id), "user_id": str(current_user.id)})
+
+    if not entry:
+        flash("Result not found or access denied.", "danger")
+        return redirect(url_for("resume.history"))
+
+    feedback_dict = parse_feedback(entry.get("feedback", "No feedback available."))
+
+    return render_template(
+        "result.html",
+        resume_text="(Original resume text not stored)" if not entry.get("resume_path") else "",  # Optional
+        Name=entry.get("resume_holder_name", "N/A"),
+        email=entry.get("resume_holder_email", "N/A"),
+        phone=entry.get("resume_holder_phone", "N/A"),
+        match_percentage=entry.get("match_percentage", 0),
+        feedback=entry.get("feedback", ""),
+        feedback_dict=feedback_dict,
+        matched_skills=entry.get("matched_skills", []),
+        missing_skills=entry.get("missing_skills", []),
+        download_filename=entry.get("improved_filename"),
+        original_filename=entry.get("resume_filename")
+    )
+
+
 @resume_bp.route("/delete-entry", methods=["POST"])
 @login_required
 def delete_entry():
