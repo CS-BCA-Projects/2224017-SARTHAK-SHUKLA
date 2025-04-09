@@ -7,260 +7,266 @@
     <meta name="author" content="Your Company">
     <title>Resume Analysis Result</title>
 
-    <!-- Google Fonts for modern typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Icon Library for modern icons -->
+    <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Poppins', sans-serif;
-            background: #f4f7f6;
-            margin: 0;
-            padding: 0;
-            color: #333;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 40px auto;
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
-            animation: fadeIn 1s ease-in-out;
-        }
-
-        .section-title {
-            font-size: 34px;
-            font-weight: 600;
-            text-align: center;
-            color: #007bff;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .info-card {
-            background-color: #f0f4ff;
-            padding: 20px;
-            margin: 25px 0 35px;
-            border-radius: 10px;
-            box-shadow: 0 3px 10px rgba(0, 123, 255, 0.1);
-        }
-
-        .info-row {
-            margin-bottom: 12px;
-            font-size: 16px;
-        }
-
-        .info-row i {
-            margin-right: 10px;
-            color: #007bff;
-        }
-
-        .info-row strong {
-            font-weight: 600;
-        }
-
-        .score-container {
-            padding: 25px;
-            margin-bottom: 30px;
-            border-radius: 10px;
-            color: white;
-            font-size: 24px;
-            font-weight: bold;
-            text-align: center;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease-in-out;
-        }
-
-        .score-container:hover {
-            transform: scale(1.05);
-        }
-
-        .score-red { background: #e74c3c; }
-        .score-yellow { background: #f1c40f; color: black; }
-        .score-green { background: #2ecc71; }
-
-        .feedback-section {
-            margin-top: 30px;
-        }
-
-        .feedback-block {
-            margin-bottom: 25px;
-            background: #f9f9f9;
-            padding: 25px;
-            border-radius: 8px;
-            border-left: 5px solid #007bff;
-            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease;
-        }
-
-        .feedback-block:hover {
-            transform: translateX(10px);
-        }
-
-        .feedback-block h3 {
-            color: #007bff;
-            margin-bottom: 15px;
-            font-size: 24px;
-        }
-
-        .feedback-block ul {
-            list-style-type: disc;
-            padding-left: 25px;
-            font-size: 16px;
-            line-height: 1.8;
-            color: #555;
-        }
-
-        .btn {
-            display: inline-block;
-            margin-top: 30px;
-            background-color: #007bff;
-            color: white;
-            padding: 12px 25px;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: bold;
-            text-align: center;
-            transition: background-color 0.3s ease, transform 0.3s ease;
-        }
-
-        .btn:hover {
-            background-color: #0056b3;
-            transform: translateY(-5px);
-        }
-
-        .btn-secondary {
-            background-color: #6c757d;
-        }
-
-        .btn-secondary:hover {
-            background-color: #5a6268;
-        }
-
-        .chart-wrapper {
+            background: linear-gradient(135deg, #f5f7fa, #e4e7eb);
+            min-height: 100vh;
+            color: #1e2a44;
             display: flex;
             justify-content: center;
-            margin-top: 40px;
+            align-items: center;
+            padding: 20px;
         }
-
-        .chart-container {
-            width: 350px;
-            margin: 0 15px;
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+            padding: 40px;
+            animation: slideUp 0.6s ease-out;
         }
-
-        .chart-container canvas {
-            border-radius: 8px;
+        .section-title {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #2b6cb0;
+            text-align: center;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+        .info-card {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
             transition: transform 0.3s ease;
         }
-
-        .chart-container:hover canvas {
-            transform: scale(1.05);
+        .info-card:hover { transform: translateY(-5px); }
+        .info-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 1rem;
+            color: #4a5568;
         }
+        .info-row i { margin-right: 12px; color: #2b6cb0; font-size: 1.2rem; }
+        .info-row strong { font-weight: 500; color: #1e2a44; margin-right: 8px; }
+        .score-container {
+            padding: 25px;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 1.75rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        .score-container.low { background: #e53e3e; }
+        .score-container.medium { background: #f6ad55; color: #1e2a44; }
+        .score-container.high { background: #38a169; }
+        .score-container:hover { transform: scale(1.03); }
+        .score-container i { margin-right: 10px; font-size: 1.5rem; }
+        .chart-wrapper {
+            max-width: 400px;
+            margin: 0 auto 30px;
+        }
+        .chart-container {
+            background: #fff;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+        }
+        .chart-container:hover { transform: scale(1.05); }
 
+        .feedback-section { margin-top: 20px; }
+        .feedback-block {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+        }
+        .feedback-block:hover { transform: translateX(8px); }
+        .feedback-block h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #2b6cb0;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+        }
+        .feedback-block h3 i {
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+        .feedback-block ul {
+            list-style: disc;
+            padding-left: 25px;
+            font-size: 0.95rem;
+            color: #4a5568;
+            line-height: 1.7;
+        }
+        .feedback-block li { margin-bottom: 8px; }
+
+        /* Feedback section color variants */
+        .missing-skills { border-left: 4px solid #e53e3e; }
+        .strengths { border-left: 4px solid #38a169; }
+        .areas-for-improvement { border-left: 4px solid #f6ad55; }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        .btn {
+            background: #2b6cb0;
+            color: #fff;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+            text-transform: uppercase;
+            text-align: center;
+            flex: 1;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn:hover {
+            background: #2c5282;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(43, 108, 176, 0.3);
+        }
+        .btn-secondary {
+            background: #718096;
+        }
+        .btn-secondary:hover {
+            background: #5a677c;
+            box-shadow: 0 6px 15px rgba(113, 128, 150, 0.3);
+        }
+        .btn i { margin-right: 8px; font-size: 1rem; }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
         @media (max-width: 768px) {
-            .container { padding: 20px; }
-            .section-title { font-size: 28px; }
-            .score-container { font-size: 20px; }
+            .container { padding: 25px; }
+            .section-title { font-size: 1.5rem; }
+            .score-container { font-size: 1.5rem; }
+            .info-row { flex-direction: column; align-items: flex-start; gap: 5px; }
+            .chart-wrapper { max-width: 100%; }
+            .button-group { flex-direction: column; gap: 10px; }
             .btn { width: 100%; }
-            .chart-container { width: 100%; margin: 0; }
-        }
-
-        @keyframes fadeIn {
-            0% { opacity: 0; }
-            100% { opacity: 1; }
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <h2 class="section-title">Resume Analysis Result</h2>
+    <div class="section-title">Your Resume Analysis</div>
 
-    <!-- Resume Holder Info -->
     <div class="info-card">
-        <div class="info-row"><i class="fas fa-user"></i> <strong>Name:</strong> {{ Name }}</div>
-        <div class="info-row"><i class="fas fa-envelope"></i> <strong>Email:</strong> <span>{{ email }}</span></div>
-        <div class="info-row"><i class="fas fa-phone"></i> <strong>Phone:</strong> <span>{{ phone }}</span></div>
+        <div class="info-row">
+            <i class="fas fa-user"></i>
+            <strong>Name:</strong> <span>{{ Name|default('N/A') }}</span>
+        </div>
+        <div class="info-row">
+            <i class="fas fa-envelope"></i>
+            <strong>Email:</strong> <span>{{ email|default('N/A') }}</span>
+        </div>
+        <div class="info-row">
+            <i class="fas fa-phone"></i>
+            <strong>Phone:</strong> <span>{{ phone|default('N/A') }}</span>
+        </div>
     </div>
 
-    <!-- Match Score Section -->
+    <div class="score-container {% if match_percentage <= 50 %}low{% elif match_percentage <= 80 %}medium{% else %}high{% endif %}">
+        <i class="fas fa-chart-bar"></i> {{ match_percentage|default(0) }}% Match
+    </div>
+
     {% if match_percentage is not none %}
-        {% if match_percentage <= 50 %}
-            <div class="score-container score-red">Match Score: {{ match_percentage }}%</div>
-        {% elif match_percentage <= 80 %}
-            <div class="score-container score-yellow">Match Score: {{ match_percentage }}%</div>
-        {% else %}
-            <div class="score-container score-green">Match Score: {{ match_percentage }}%</div>
-        {% endif %}
-
-        <!-- Pie Chart -->
-        <div class="chart-wrapper">
-            <div class="chart-container">
-                <canvas id="matchChart"></canvas>
-            </div>
+    <div class="chart-wrapper">
+        <div class="chart-container">
+            <canvas id="matchChart"></canvas>
         </div>
-
-        <script>
-            const matchScore = {{ match_percentage }};
-            const missingScore = 100 - matchScore;
-            const matchCtx = document.getElementById('matchChart').getContext('2d');
-            new Chart(matchCtx, {
-                type: 'pie',
-                data: {
-                    labels: ['Match %', 'Unmatched %'],
-                    datasets: [{
-                        data: [matchScore, missingScore],
-                        backgroundColor: ['#36A2EB', '#FF6384'],
-                        hoverOffset: 10
-                    }]
-                },
-                options: {
-                    plugins: {
-                        legend: { position: 'bottom' }
+    </div>
+    <script>
+        const ctx = document.getElementById('matchChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: ['Matched', 'Unmatched'],
+                datasets: [{
+                    data: [{{ match_percentage|default(0) }}, {{ 100 - match_percentage|default(0) }}],
+                    backgroundColor: ['#2b6cb0', '#e2e8f0'],
+                    borderWidth: 1,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: { size: 12, family: 'Poppins', weight: '500' },
+                            color: '#1e2a44'
+                        }
                     }
                 }
-            });
-        </script>
-    {% else %}
-        <p>⚠️ No match percentage available.</p>
+            }
+        });
+    </script>
     {% endif %}
 
-    <!-- Feedback Section -->
     <div class="feedback-section">
-        {% if feedback %}
-            {% set parts = feedback.split('\n\n') %}
-            {% for part in parts %}
-                {% set lines = part.strip().split('\n') %}
-                {% if lines %}
-                    {% set title = lines[0] %}
-                    {% set items = lines[1:] %}
-                    <div class="feedback-block">
-                        <h3><i class="fas fa-puzzle-piece"></i> {{ title }}</h3>
+        {% if feedback_dict %}
+            {% for section, items in feedback_dict.items() %}
+                {% if items %}
+                    <div class="feedback-block {{ section|lower|replace(' ', '-') }}">
+                        <h3>
+                            <i class="fas {% if section == 'Missing Skills' %}fa-minus-circle{% elif section == 'Strengths' %}fa-check-circle{% elif section == 'Areas for Improvement' %}fa-tools{% else %}fa-lightbulb{% endif %}"></i>
+                            {{ section }}
+                        </h3>
                         <ul>
-                            {% for line in items %}
-                                <li>{{ line.lstrip('-').strip() }}</li>
+                            {% for item in items %}
+                                <li>{{ item }}</li>
                             {% endfor %}
                         </ul>
                     </div>
                 {% endif %}
             {% endfor %}
         {% else %}
-            <p>No detailed feedback available.</p>
+            <p style="text-align: center; color: #718096; font-size: 0.95rem;">No feedback available.</p>
         {% endif %}
     </div>
 
-    <!-- Buttons -->
-    <div>
+    <div class="button-group">
         {% if download_filename %}
-        <a href="{{ url_for('resume.download_resume', filename=download_filename) }}" class="btn">⬇ Download Improved Resume</a>
+            <a href="{{ url_for('resume.download_resume', filename=download_filename) }}" class="btn">
+                <i class="fas fa-download"></i> Download Resume
+            </a>
         {% endif %}
-        <a href="{{ url_for('resume.dashboard') }}" class="btn btn-secondary">⬅ Back to Dashboard</a>
+        <a href="{{ url_for('resume.history') }}" class="btn btn-secondary">
+            <i class="fas fa-history"></i> View History
+        </a>
     </div>
 </div>
 </body>

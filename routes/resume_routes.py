@@ -1,6 +1,6 @@
 from flask import (
     Blueprint, render_template, request, jsonify, redirect,
-    url_for, flash, send_file
+    url_for, flash, send_file, send_from_directory
 )
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
@@ -11,6 +11,7 @@ import os
 import uuid
 from datetime import datetime
 from bson import ObjectId
+import re
 
 from utils.resume_parser import (
     process_resume,
@@ -27,13 +28,33 @@ RESUME_FOLDER = "static/resumes"
 ALLOWED_EXTENSIONS = {"pdf", "docx"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
-# Ensure required folders exist
+# Ensure folders exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESUME_FOLDER, exist_ok=True)
 
-
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def parse_feedback(feedback):
+    sections = ['Strengths', 'Missing Skills', 'Areas for Improvement']
+    result = {section: [] for section in sections}
+
+    clean_feedback = feedback.strip().replace('\r\n', '\n')
+    pattern = r'(?P<section>Strengths|Missing Skills|Areas for Improvement):\s*\n'
+    parts = re.split(pattern, clean_feedback, flags=re.IGNORECASE)
+
+    for i in range(1, len(parts), 2):
+        section_title = parts[i].strip().title()
+        content = parts[i + 1].strip()
+        items = [
+            line.strip('- ').strip()
+            for line in content.splitlines()
+            if line.strip() and (line.strip().startswith('-') or len(line.strip()) > 0)
+        ]
+        result[section_title] = items
+
+    return result
+
 @resume_bp.route('/dashboard', methods=["GET", "POST"])
 @login_required
 def dashboard():
@@ -59,9 +80,8 @@ def dashboard():
             flash("Job description is required.", "danger")
             return redirect(url_for("resume.dashboard"))
 
-        # Save original resume
         original_filename = f"{uuid.uuid4()}_{secure_filename(file.filename)}"
-        original_path = os.path.join(RESUME_FOLDER, original_filename)
+        original_path = os.path.join(UPLOAD_FOLDER, original_filename)
         file.save(original_path)
 
         try:
@@ -69,21 +89,19 @@ def dashboard():
             analysis_result = match_resume_with_job(resume_text, job_description)
 
             match_percentage = analysis_result.get("match_percentage", 0)
-            feedback = escape(analysis_result.get("feedback", "No feedback available."))
+            feedback = analysis_result.get("feedback", "No feedback available.")
             matched_skills = analysis_result.get("matched_skills", [])
             missing_skills = analysis_result.get("missing_skills", [])
+            feedback_dict = parse_feedback(feedback)
 
-            # Save improved resume
             improved_filename = f"improved_{uuid.uuid4()}.docx"
             improved_path = os.path.join(RESUME_FOLDER, improved_filename)
             generate_improved_resume(resume_text, analysis_result, improved_path)
 
-            # Resume holder details
             resume_holder_name = analysis_result.get("Name", "N/A")
             resume_holder_email = analysis_result.get("email", "N/A")
             resume_holder_phone = analysis_result.get("phone", "N/A")
 
-            # Save to MongoDB
             mongo.db.analysis.insert_one({
                 "user_id": current_user.id,
                 "username": current_user.username,
@@ -111,9 +129,11 @@ def dashboard():
                 phone=resume_holder_phone,
                 match_percentage=match_percentage,
                 feedback=feedback,
+                feedback_dict=feedback_dict,
                 matched_skills=matched_skills,
                 missing_skills=missing_skills,
-                download_filename=improved_filename
+                download_filename=improved_filename,
+                original_filename=original_filename
             )
 
         except Exception as e:
@@ -125,6 +145,8 @@ def dashboard():
         username=current_user.username,
         csrf_token=generate_csrf()
     )
+
+# 🔽 For improved resume (still served from static/)
 @resume_bp.route("/download/<filename>")
 @login_required
 def download_resume(filename):
@@ -135,6 +157,11 @@ def download_resume(filename):
         flash("File not found!", "danger")
         return redirect(url_for("resume.dashboard"))
 
+# 🔽 For original file (served from uploads/)
+@resume_bp.route("/uploads/<filename>")
+@login_required
+def download_original_resume(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
 
 @resume_bp.route('/history')
 @login_required
@@ -154,12 +181,11 @@ def history():
             "matched_skills": entry.get("matched_skills", []),
             "missing_skills": entry.get("missing_skills", []),
             "timestamp": entry.get("timestamp", datetime.now()),
-            "resume_url": "/" + entry.get("resume_path", ""),
-            "improved_resume_url": "/" + entry.get("improved_resume_path", "")
+            "resume_url": url_for("resume.download_original_resume", filename=entry.get("resume_filename", "")),
+            "improved_resume_url": url_for("resume.download_resume", filename=entry.get("improved_filename", ""))
         })
 
     return render_template("history.html", analysis_entries=analysis_entries)
-
 
 @resume_bp.route("/delete-entry", methods=["POST"])
 @login_required

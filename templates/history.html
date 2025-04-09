@@ -1,8 +1,8 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Analysis History</title>
+    <title>Resume Analysis History</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- Bootstrap CSS & Icons -->
@@ -12,24 +12,29 @@
     <style>
         body {
             font-family: 'Segoe UI', sans-serif;
-            background-color: #f8f9fa;
+            background-color: #f4f6f9;
             padding: 40px 20px;
         }
         .history-container {
-            max-width: 900px;
+            max-width: 1000px;
             margin: auto;
         }
         .card {
-            border-radius: 10px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border: none;
         }
         .card-header {
-            background-color: #343a40;
+            background-color: #0d6efd;
             color: white;
             font-weight: bold;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+            padding: 1rem 1.25rem;
         }
         .timestamp {
             font-size: 0.9rem;
@@ -41,14 +46,28 @@
         .info-label {
             font-weight: 500;
         }
+        .badge {
+            font-size: 1rem;
+            padding: 0.5em 0.8em;
+            border-radius: 8px;
+        }
+        ul.skill-list {
+            padding-left: 1.2rem;
+        }
+        ul.skill-list li {
+            margin-bottom: 6px;
+        }
+        .btn-sm i {
+            font-size: 1rem;
+        }
 
-        /* Back arrow button */
+        /* Back button */
         .back-arrow {
             position: fixed;
             top: 20px;
             left: 20px;
             z-index: 1000;
-            background-color: #343a40;
+            background-color: #0d6efd;
             color: white;
             border: none;
             border-radius: 50%;
@@ -60,20 +79,20 @@
             transition: background-color 0.3s ease;
         }
         .back-arrow:hover {
-            background-color: #495057;
+            background-color: #0b5ed7;
             color: #ffc107;
         }
     </style>
 </head>
 <body>
 
-<!-- Back arrow to base page -->
+<!-- Back button -->
 <a href="{{ url_for('resume.dashboard') }}" class="back-arrow" title="Back to Dashboard">
     <i class="bi bi-arrow-left"></i>
 </a>
 
 <div class="history-container">
-    <h2 class="text-center mb-4">📜 Resume Analysis History</h2>
+    <h2 class="text-center mb-5">📜 Resume Analysis History</h2>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -88,16 +107,14 @@
 
     {% if analysis_entries %}
         {% for entry in analysis_entries %}
-            <div class="card shadow-sm mb-4">
+            <div class="card mb-4">
                 <div class="card-header">
                     <div>
-                        <strong>{{ entry.holder_name }}</strong>
+                        <i class="bi bi-person-circle me-2"></i> {{ entry.holder_name }}
                     </div>
                     <div class="d-flex gap-2">
                         {% if entry.improved_resume_url %}
-                            <a href="{{ entry.improved_resume_url }}"
-                               class="btn btn-sm btn-outline-light"
-                               title="Download Improved Resume">
+                            <a href="{{ entry.improved_resume_url }}" class="btn btn-sm btn-outline-light" title="Download Improved Resume">
                                 <i class="bi bi-download"></i>
                             </a>
                         {% endif %}
@@ -116,34 +133,42 @@
                     <p><span class="info-label">📧 Email:</span> {{ entry.holder_email }}</p>
                     <p><span class="info-label">📞 Phone:</span> {{ entry.holder_phone }}</p>
 
-                    <h5 class="card-title">🎯 Match Percentage:</h5>
+                    <h5 class="mt-3">🎯 Match Percentage:</h5>
                     {% set percentage = entry.match_percentage %}
                     {% if percentage >= 80 %}
-                        <span class="badge bg-success fs-6">{{ percentage }}%</span>
+                        <span class="badge bg-success">{{ percentage }}%</span>
                     {% elif percentage >= 50 %}
-                        <span class="badge bg-warning text-dark fs-6">{{ percentage }}%</span>
+                        <span class="badge bg-warning text-dark">{{ percentage }}%</span>
                     {% else %}
-                        <span class="badge bg-danger fs-6">{{ percentage }}%</span>
+                        <span class="badge bg-danger">{{ percentage }}%</span>
                     {% endif %}
 
-                    <h5 class="card-title mt-3">🔍 Matched Skills:</h5>
-                    <p class="mb-2">{{ entry.matched_skills }}</p>
+                    <h5 class="mt-4">✅ Matched Skills:</h5>
+                    {% if entry.matched_skills %}
+                        <ul class="skill-list">
+                            {% for skill in entry.matched_skills %}
+                                <li>{{ skill }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted">No matched skills listed.</p>
+                    {% endif %}
 
-                    <h5 class="card-title">📝 Job Description:</h5>
-                    <p class="mb-2">{{ entry.job_description }}</p>
+                    <h5 class="mt-3">📝 Job Description:</h5>
+                    <p>{{ entry.job_description }}</p>
 
-                    <p class="timestamp">📅 Analyzed at: {{ entry.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                    <p class="timestamp mt-3">📅 Analyzed on: {{ entry.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
 
                     {% if entry.resume_url %}
                         <a href="{{ entry.resume_url }}" target="_blank" class="btn btn-outline-primary btn-sm mt-2">
-                            <i class="bi bi-cloud-download"></i> View/Download Original Resume
+                            <i class="bi bi-file-earmark-text"></i> View Original Resume
                         </a>
                     {% endif %}
                 </div>
             </div>
         {% endfor %}
     {% else %}
-        <p class="text-center text-muted">No history found yet.</p>
+        <p class="text-center text-muted">No resume analysis history yet. Start by uploading one on the dashboard.</p>
     {% endif %}
 </div>
 

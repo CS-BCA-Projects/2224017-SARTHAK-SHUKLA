@@ -72,19 +72,8 @@ def process_resume(file_path):
 # =====================================
 def format_feedback(raw_feedback):
     formatted_feedback = raw_feedback.strip()
-
-    formatted_feedback = re.sub(r'\*\*(.*?)\*\*', r'', formatted_feedback)
+    formatted_feedback = re.sub(r'\*\*(.*?)\*\*', r'\1', formatted_feedback)  # Keep bold text without **
     formatted_feedback = re.sub(r'\n{2,}', '\n\n', formatted_feedback)
-
-    formatted_feedback = formatted_feedback.replace("Strengths:", "Strengths:")
-    formatted_feedback = formatted_feedback.replace("Missing Skills:", "Missing Skills:")
-    formatted_feedback = formatted_feedback.replace("Areas for Improvement:", "Areas for Improvement:")
-
-    formatted_feedback = re.sub(r'(\n[❌⚠️].*)', r'<p>\1</p>', formatted_feedback)
-    formatted_feedback = re.sub(r'<p>([❌⚠️].*)</p>', r'<ul><li>\1</li></ul>', formatted_feedback)
-    formatted_feedback = re.sub(r'</ul><ul>', '', formatted_feedback)
-    formatted_feedback = re.sub(r'<ul><li><p>(.*?)</p></li></ul>', r'<ul><li>\1</li></ul>', formatted_feedback)
-
     return formatted_feedback
 
 # =====================================
@@ -92,10 +81,11 @@ def format_feedback(raw_feedback):
 # =====================================
 def extract_skills_from_feedback(feedback, section):
     try:
-        pattern = rf"{section}:\n((?:- .+\n?)+)"
+        pattern = rf"{section}:\s*\n((?:-.*(?:\n|$))*)"
         matches = re.search(pattern, feedback, re.IGNORECASE)
         if matches:
-            return [line.strip("- ").strip() for line in matches.group(1).strip().splitlines()]
+            skills_text = matches.group(1).strip()
+            return [line.strip("- ").strip() for line in skills_text.splitlines() if line.strip().startswith("-")]
         return []
     except Exception as e:
         logging.error("Error extracting %s: %s", section, str(e))
@@ -128,7 +118,6 @@ Areas for Improvement:
 Name: [Name of the resume holder]
 Email: [Email of the resume holder]
 Phone: [Phone number of the resume holder]
-===========================
 
 📄 Resume:
 {resume_text}
@@ -137,9 +126,10 @@ Phone: [Phone number of the resume holder]
 {job_description}
 """
         response = call_gemini(prompt)
-        logging.debug("🔍 Gemini Full Response: %s", response)
+        logging.debug("🔍 Raw Gemini Response: %s", response)
 
         if "Match Score" not in response:
+            logging.error("Gemini response missing Match Score")
             return {
                 "match_percentage": 0,
                 "feedback": "⚠️ Gemini failed to return structured feedback. Please try again.\n\nRaw Response:\n" + response,
@@ -150,22 +140,50 @@ Phone: [Phone number of the resume holder]
                 "phone": "N/A"
             }
 
-        name_match = re.search(r"Name: (.*)", response)
-        email_match = re.search(r"Email: (.*)", response)
-        phone_match = re.search(r"Phone: (.*)", response)
+        # Split response and process
+        lines = response.splitlines()
+        feedback_lines = []
+        name, email, phone = "N/A", "N/A", "N/A"
+        match_percentage = 0
 
-        match_score = re.search(r"Match Score: (\d+)%", response)
-        match_percentage = int(match_score.group(1)) if match_score else 0
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if line.startswith("Match Score:"):
+                match_percentage = int(re.search(r"(\d+)%", line).group(1)) if re.search(r"(\d+)%", line) else 0
+                feedback_lines.append(line)
+            elif line.startswith("Name:") and name == "N/A":
+                name = line.replace("Name:", "").strip()
+            elif line.startswith("Email:") and email == "N/A":
+                email = line.replace("Email:", "").strip()
+            elif line.startswith("Phone:") and phone == "N/A":
+                phone = line.replace("Phone:", "").strip()
+            elif any(line.startswith(s) for s in ["Missing Skills:", "Strengths:", "Areas for Improvement:"]):
+                feedback_lines.append(line)
+                i += 1
+                while i < len(lines) and (lines[i].strip().startswith("-") or lines[i].strip() == ""):
+                    if lines[i].strip().startswith("-"):
+                        feedback_lines.append(lines[i].strip())
+                    i += 1
+                continue
+            i += 1
 
-        matched_skills = extract_skills_from_feedback(response, "Strengths")
-        missing_skills = extract_skills_from_feedback(response, "Missing Skills")
+        # Reconstruct feedback
+        feedback_text = "\n\n".join(feedback_lines)
+        logging.debug("Constructed feedback: %s", feedback_text)
+
+        matched_skills = extract_skills_from_feedback(feedback_text, "Strengths")
+        missing_skills = extract_skills_from_feedback(feedback_text, "Missing Skills")
+
+        logging.debug("Matched Skills: %s", matched_skills)
+        logging.debug("Missing Skills: %s", missing_skills)
 
         return {
-            "Name": name_match.group(1).strip() if name_match else "N/A",
-            "email": email_match.group(1).strip() if email_match else "N/A",
-            "phone": phone_match.group(1).strip() if phone_match else "N/A",
+            "Name": name,
+            "email": email,
+            "phone": phone,
             "match_percentage": match_percentage,
-            "feedback": format_feedback(response),
+            "feedback": format_feedback(feedback_text),
             "matched_skills": matched_skills,
             "missing_skills": missing_skills,
         }
@@ -181,7 +199,6 @@ Phone: [Phone number of the resume holder]
             "email": "N/A",
             "phone": "N/A"
         }
-
 
 # =====================================
 # 📝 Generate Improved Resume
@@ -208,41 +225,49 @@ Use bullet points, emoji markers, and keep the tone professional.
 Quantify achievements and improve readability. Keep it stylish, clean, and modern.
 """)
 
+    # Replace double asterisks for headings and single for bullet points
+    improved_text = re.sub(r"\*\*(.+?)\*\*", r"<<HEADING:\1>>", improved_text)
+    improved_text = re.sub(r"\*(.+?)\*", r"- \1", improved_text)
+
     doc = Document()
 
+    # Add title
     title = doc.add_heading("\U0001F4BC Improved Resume", level=1)
     title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-
-    sections = ["Professional Summary", "Skills", "Experience", "Education", "Certifications"]
 
     for paragraph in improved_text.split("\n\n"):
         lines = paragraph.strip().split("\n")
         if not lines:
             continue
 
-        first_line = lines[0].strip()
-        section_match = next((sec for sec in sections if sec.lower() in first_line.lower()), None)
-
-        if section_match:
-            heading = doc.add_paragraph()
-            run = heading.add_run(first_line)
-            run.bold = True
-            run.font.size = Pt(12)
-            run.font.color.rgb = RGBColor(0, 102, 204)
-            content_lines = lines[1:]
-        else:
-            content_lines = lines
-
-        for line in content_lines:
+        for line in lines:
             line = line.strip()
-            if line.startswith("-") or line.startswith("•"):
-                doc.add_paragraph(line.lstrip("-• ").strip(), style='List Bullet')
+
+            # Solid heading
+            if line.startswith("<<HEADING:") and line.endswith(">>"):
+                heading_text = line.replace("<<HEADING:", "").replace(">>", "").strip()
+                para = doc.add_paragraph()
+                run = para.add_run(heading_text)
+                run.bold = True
+                run.font.size = Pt(14)
+                run.font.color.rgb = RGBColor(0, 102, 204)
+                para.paragraph_format.space_before = Pt(10)
+
+            # Bullet point
+            elif line.startswith("-") or line.startswith("•"):
+                doc.add_paragraph(line.lstrip("-• ").strip(), style="List Bullet")
+
+            # Regular line
             elif line:
                 para = doc.add_paragraph(line)
                 para.paragraph_format.space_after = Pt(6)
 
-    doc.add_paragraph(
-        "\n\U0001F4A1 Note: Focus on improving the highlighted target areas and quantify achievements when updating your resume.",
-        style="Normal")
+    # Add footer note
+    note_para = doc.add_paragraph()
+    note_run = note_para.add_run(
+        "\n\U0001F4A1 Note: Focus on improving the highlighted target areas and quantify achievements when updating your resume."
+    )
+    note_run.italic = True
+    note_para.paragraph_format.space_before = Pt(10)
 
     doc.save(output_path)

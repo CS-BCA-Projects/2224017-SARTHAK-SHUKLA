@@ -85,7 +85,7 @@
         .drop-zone {
             border: 2px dashed #6c757d;
             border-radius: 10px;
-            padding: 50px;
+            padding: 50px 20px;
             text-align: center;
             color: #6c757d;
             background-color: #ffffff;
@@ -115,11 +115,25 @@
             font-weight: 500;
             color: #212529;
         }
+
+        textarea.form-control {
+            background-color: #fdfdfd;
+            border: 1px solid #ced4da;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            font-size: 18px;
+        }
+
+        .card-header i {
+            margin-right: 8px;
+        }
     </style>
 </head>
 <body>
 
-<!-- Sidebar -->
 <!-- Sidebar -->
 <div id="sidebar">
     <h5 class="text-center text-white mb-4">📊 Dashboard</h5>
@@ -156,23 +170,30 @@
 
         <!-- Upload Section -->
         <div class="card shadow mb-4">
-            <div class="card-header bg-primary text-white">📤 Upload Resume & Job Description</div>
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-upload"></i> Upload Resume & Job Description
+            </div>
             <div class="card-body">
                 <form method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
+                    <!-- Drag & Drop -->
                     <div class="drop-zone mb-3" id="dropZone">
                         <p>📎 Drag & drop your resume or click to upload</p>
                         <input type="file" name="resume" id="resumeInput" accept=".pdf,.docx" hidden required>
-                        <span id="fileName"></span>
+                        <span id="fileName">No file selected</span>
                     </div>
 
+                    <!-- Job Description -->
                     <div class="mb-3">
-                        <label class="form-label">📝 Job Description</label>
-                        <textarea class="form-control" name="jobDescription" rows="4" required></textarea>
+                        <label class="form-label fw-semibold">📝 Job Description</label>
+                        <textarea class="form-control" name="jobDescription" rows="4" placeholder="Paste the job description here..." required></textarea>
                     </div>
 
-                    <button type="submit" class="btn btn-success w-100">🧠 Analyze Resume</button>
+                    <!-- Submit -->
+                    <button type="submit" class="btn btn-success w-100">
+                        🧠 Analyze Resume
+                    </button>
                 </form>
             </div>
         </div>
