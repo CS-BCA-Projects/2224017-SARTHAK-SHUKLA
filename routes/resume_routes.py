@@ -7,11 +7,12 @@ from werkzeug.utils import secure_filename
 from flask_wtf.csrf import generate_csrf
 from markupsafe import escape
 
-import os
+import io
 import uuid
 from datetime import datetime
 from bson import ObjectId
 import re
+import cloudinary.uploader
 
 from utils.resume_parser import (
     process_resume,
@@ -22,15 +23,8 @@ from extensions import mongo
 
 resume_bp = Blueprint('resume', __name__)
 
-# Configuration
-UPLOAD_FOLDER = "uploads"
-RESUME_FOLDER = "static/resumes"
 ALLOWED_EXTENSIONS = {"pdf", "docx"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
-
-# Ensure folders exist
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(RESUME_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -70,7 +64,7 @@ def dashboard():
             flash("Invalid file type. Please upload a PDF or DOCX file.", "danger")
             return redirect(url_for("resume.dashboard"))
 
-        file.seek(0, os.SEEK_END)
+        file.seek(0, io.SEEK_END)
         if file.tell() > MAX_FILE_SIZE:
             flash("File size exceeds the 5MB limit.", "danger")
             return redirect(url_for("resume.dashboard"))
@@ -80,12 +74,27 @@ def dashboard():
             flash("Job description is required.", "danger")
             return redirect(url_for("resume.dashboard"))
 
-        original_filename = f"{uuid.uuid4()}_{secure_filename(file.filename)}"
-        original_path = os.path.join(UPLOAD_FOLDER, original_filename)
-        file.save(original_path)
+        file_stream = io.BytesIO(file.read())
+        file.seek(0)
 
         try:
-            resume_text = process_resume(original_path)
+            # Upload original resume to Cloudinary with timestamped filename
+            ext = file.filename.rsplit(".", 1)[1].lower()
+            timestamp = int(datetime.utcnow().timestamp())
+            public_id = f"original_resumes/original_resume_{timestamp}"
+
+            cloudinary_original = cloudinary.uploader.upload_large(
+                file_stream,
+                resource_type="raw",
+                type="upload",
+                access_mode="public",             # Makes file publicly downloadable
+                public_id=f"{public_id}.{ext}",
+                overwrite=True
+            )
+
+            original_url = cloudinary_original.get("secure_url")
+
+            resume_text = process_resume(file)
             analysis_result = match_resume_with_job(resume_text, job_description)
 
             match_percentage = analysis_result.get("match_percentage", 0)
@@ -94,9 +103,12 @@ def dashboard():
             missing_skills = analysis_result.get("missing_skills", [])
             feedback_dict = parse_feedback(feedback)
 
-            improved_filename = f"improved_{uuid.uuid4()}.docx"
-            improved_path = os.path.join(RESUME_FOLDER, improved_filename)
-            generate_improved_resume(resume_text, analysis_result, improved_path)
+            improved_url = generate_improved_resume(resume_text, analysis_result)
+            if not improved_url:
+                flash("Failed to generate and upload improved resume.", "danger")
+                return redirect(url_for("resume.dashboard"))
+
+            improved_filename = improved_url.split("/")[-1]
 
             resume_holder_name = analysis_result.get("Name", "N/A")
             resume_holder_email = analysis_result.get("email", "N/A")
@@ -113,10 +125,10 @@ def dashboard():
                 "feedback": feedback,
                 "matched_skills": matched_skills,
                 "missing_skills": missing_skills,
-                "resume_filename": original_filename,
-                "resume_path": original_path,
+                "resume_filename": f"original_resume_{timestamp}.{ext}",
+                "resume_path": original_url,
                 "improved_filename": improved_filename,
-                "improved_resume_path": improved_path,
+                "improved_resume_path": improved_url,
                 "timestamp": datetime.utcnow()
             })
 
@@ -133,7 +145,7 @@ def dashboard():
                 matched_skills=matched_skills,
                 missing_skills=missing_skills,
                 download_filename=improved_filename,
-                original_filename=original_filename
+                original_filename=f"original_resume_{timestamp}.{ext}"
             )
 
         except Exception as e:
@@ -146,22 +158,31 @@ def dashboard():
         csrf_token=generate_csrf()
     )
 
-# 🔽 For improved resume (still served from static/)
 @resume_bp.route("/download/<filename>")
 @login_required
 def download_resume(filename):
-    file_path = os.path.join(RESUME_FOLDER, secure_filename(filename))
-    if os.path.exists(file_path):
-        return send_file(file_path, as_attachment=True)
-    else:
-        flash("File not found!", "danger")
+    entry = mongo.db.analysis.find_one({
+        "improved_filename": filename,
+        "user_id": str(current_user.id)
+    })
+    if not entry:
+        flash("File not found or access denied.", "danger")
         return redirect(url_for("resume.dashboard"))
 
-# 🔽 For original file (served from uploads/)
+    return redirect(entry["improved_resume_path"])
+
 @resume_bp.route("/uploads/<filename>")
 @login_required
 def download_original_resume(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
+    entry = mongo.db.analysis.find_one({
+        "resume_filename": filename,
+        "user_id": str(current_user.id)
+    })
+    if not entry:
+        flash("File not found or access denied.", "danger")
+        return redirect(url_for("resume.dashboard"))
+
+    return redirect(entry["resume_path"])
 
 @resume_bp.route('/history')
 @login_required
@@ -200,7 +221,7 @@ def view_result(entry_id):
 
     return render_template(
         "result.html",
-        resume_text="(Original resume text not stored)" if not entry.get("resume_path") else "",  # Optional
+        resume_text="(Original resume text not stored)",
         Name=entry.get("resume_holder_name", "N/A"),
         email=entry.get("resume_holder_email", "N/A"),
         phone=entry.get("resume_holder_phone", "N/A"),
@@ -212,7 +233,6 @@ def view_result(entry_id):
         download_filename=entry.get("improved_filename"),
         original_filename=entry.get("resume_filename")
     )
-
 
 @resume_bp.route("/delete-entry", methods=["POST"])
 @login_required
@@ -227,16 +247,14 @@ def delete_entry():
         flash("Entry not found.", "danger")
         return redirect(url_for("resume.history"))
 
+    # Delete from Cloudinary
     try:
-        resume_path = entry.get("resume_path", "").replace("\\", "/")
-        improved_path = entry.get("improved_resume_path", "").replace("\\", "/")
-
-        if resume_path and os.path.exists(resume_path):
-            os.remove(resume_path)
-        if improved_path and os.path.exists(improved_path):
-            os.remove(improved_path)
+        if entry.get("resume_filename"):
+            cloudinary.uploader.destroy(f"original_resumes/{entry['resume_filename'].rsplit('.', 1)[0]}", resource_type="raw")
+        if entry.get("improved_filename"):
+            cloudinary.uploader.destroy(f"improved_resumes/{entry['improved_filename'].rsplit('.', 1)[0]}", resource_type="raw")
     except Exception as e:
-        flash(f"Error deleting files: {str(e)}", "warning")
+        flash(f"Error deleting files from Cloudinary: {e}", "warning")
 
     mongo.db.analysis.delete_one({"_id": ObjectId(entry_id)})
     flash("Entry deleted successfully.", "success")

@@ -6,6 +6,7 @@ from flask_mail import Mail
 from flask_wtf import CSRFProtect
 from models import User
 from pymongo.errors import ServerSelectionTimeoutError  # ✅ Corrected import
+import cloudinary
 
 # Load environment variables
 load_dotenv()
@@ -15,6 +16,14 @@ mongo = PyMongo()
 login_manager = LoginManager()
 mail = Mail()
 csrf = CSRFProtect()  # ✅ CSRF protection for forms
+
+# ✅ Cloudinary setup using environment variables
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 
 @login_manager.user_loader
 def load_user(user_id):

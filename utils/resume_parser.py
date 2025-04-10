@@ -9,7 +9,10 @@ from docx import Document
 from docx.shared import RGBColor, Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from config import GEMINI_MODEL
+import cloudinary.uploader
 import logging
+import io
+import tempfile
 
 # 🤖 Load Environment Variables
 load_dotenv()
@@ -59,20 +62,45 @@ def extract_text_from_docx(docx_path):
         logging.error("Error extracting text from DOCX: %s", str(e))
         return f"Error extracting text from DOCX: {str(e)}"
 
-def process_resume(file_path):
-    if file_path.endswith(".pdf"):
-        return extract_text_from_pdf(file_path)
-    elif file_path.endswith(".docx"):
-        return extract_text_from_docx(file_path)
-    else:
-        return "Unsupported file format. Please upload a PDF or DOCX file."
+def process_resume(file_input):
+    try:
+        if isinstance(file_input, str):
+            if file_input.endswith(".pdf"):
+                return extract_text_from_pdf(file_input)
+            elif file_input.endswith(".docx"):
+                return extract_text_from_docx(file_input)
+            else:
+                return "Unsupported file format. Please upload a PDF or DOCX file."
+
+        elif hasattr(file_input, "read"):
+            header = file_input.read(1024)
+            file_input.seek(0)
+
+            if b"%PDF" in header:
+                suffix = ".pdf"
+            elif b"PK" in header:
+                suffix = ".docx"
+            else:
+                return "Unsupported in-memory file type. Please upload a valid PDF or DOCX."
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(file_input.read())
+                tmp_path = tmp.name
+
+            return process_resume(tmp_path)
+
+        else:
+            return "Invalid input. File must be a path or a file-like object."
+    except Exception as e:
+        logging.error("Error processing resume: %s", str(e))
+        return f"Error processing resume: {str(e)}"
 
 # =====================================
 # 📝 Feedback Formatting
 # =====================================
 def format_feedback(raw_feedback):
     formatted_feedback = raw_feedback.strip()
-    formatted_feedback = re.sub(r'\*\*(.*?)\*\*', r'\1', formatted_feedback)  # Keep bold text without **
+    formatted_feedback = re.sub(r'\*\*(.*?)\*\*', r'\1', formatted_feedback)
     formatted_feedback = re.sub(r'\n{2,}', '\n\n', formatted_feedback)
     return formatted_feedback
 
@@ -140,7 +168,6 @@ Phone: [Phone number of the resume holder]
                 "phone": "N/A"
             }
 
-        # Split response and process
         lines = response.splitlines()
         feedback_lines = []
         name, email, phone = "N/A", "N/A", "N/A"
@@ -168,7 +195,6 @@ Phone: [Phone number of the resume holder]
                 continue
             i += 1
 
-        # Reconstruct feedback
         feedback_text = "\n\n".join(feedback_lines)
         logging.debug("Constructed feedback: %s", feedback_text)
 
@@ -203,8 +229,7 @@ Phone: [Phone number of the resume holder]
 # =====================================
 # 📝 Generate Improved Resume
 # =====================================
-
-def generate_improved_resume(resume_text, analysis_result, output_path):
+def generate_improved_resume(resume_text, analysis_result):
     improved_text = call_gemini(f"""
 Based on the following resume and analysis feedback, generate an improved version:
 
@@ -225,16 +250,12 @@ Use bullet points, emoji markers, and keep the tone professional.
 Quantify achievements and improve readability. Keep it stylish, clean, and modern.
 """)
 
-    # Normalize subheading bullets like "* <<HEADING:...>>"
+    # Parse & clean Gemini markdown output
     improved_text = re.sub(r"\*\s*(<<HEADING:.*?>>)", r"\1", improved_text)
-
-    # Convert bold headings to placeholder format
     improved_text = re.sub(r"\*\*(.+?)\*\*", r"<<HEADING:\1>>", improved_text)
     improved_text = re.sub(r"\*(.+?)\*", r"- \1", improved_text)
 
     doc = Document()
-
-    # Add title
     title = doc.add_heading("\U0001F4BC Improved Resume", level=1)
     title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
@@ -242,13 +263,10 @@ Quantify achievements and improve readability. Keep it stylish, clean, and moder
         lines = paragraph.strip().split("\n")
         if not lines:
             continue
-
         for line in lines:
             line = line.strip()
             if not line:
                 continue
-
-            # Top-level section heading
             if line.startswith("<<HEADING:") and line.endswith(">>"):
                 heading_text = line.replace("<<HEADING:", "").replace(">>", "").strip()
                 para = doc.add_paragraph()
@@ -258,8 +276,6 @@ Quantify achievements and improve readability. Keep it stylish, clean, and moder
                 run.font.color.rgb = RGBColor(0, 102, 204)
                 para.paragraph_format.space_before = Pt(14)
                 para.paragraph_format.space_after = Pt(4)
-
-            # Sub-section heading (e.g., Problem Solved:)
             elif re.match(r"^<<HEADING:.+?>>", line):
                 subheading_text = re.sub(r"<<HEADING:(.+?)>>", r"\1", line).strip()
                 para = doc.add_paragraph()
@@ -269,17 +285,13 @@ Quantify achievements and improve readability. Keep it stylish, clean, and moder
                 run.font.color.rgb = RGBColor(80, 80, 80)
                 para.paragraph_format.space_before = Pt(6)
                 para.paragraph_format.space_after = Pt(2)
-
-            # Bullet point
             elif line.startswith("-") or line.startswith("•") or line.startswith("*"):
                 doc.add_paragraph(line.lstrip("-•* ").strip(), style="List Bullet")
-
-            # Regular line
             else:
                 para = doc.add_paragraph(line)
                 para.paragraph_format.space_after = Pt(6)
 
-    # Add footer note
+    # Add closing note
     note_para = doc.add_paragraph()
     note_run = note_para.add_run(
         "\n\U0001F4A1 Note: Focus on improving the highlighted target areas and quantify achievements when updating your resume."
@@ -287,4 +299,23 @@ Quantify achievements and improve readability. Keep it stylish, clean, and moder
     note_run.italic = True
     note_para.paragraph_format.space_before = Pt(10)
 
-    doc.save(output_path)
+    # Save DOCX to stream
+    doc_stream = io.BytesIO()
+    doc.save(doc_stream)
+    doc_stream.seek(0)
+
+    # Upload to Cloudinary — make sure it's PUBLIC
+    try:
+        result = cloudinary.uploader.upload_large(
+            doc_stream,
+            resource_type="raw",  # Upload as binary file (not image)
+            type="upload",  # <== this ensures public access
+            public_id=f"improved_resumes/improved_resume_{int(time.time())}.docx",
+            folder="improved_resumes",
+            overwrite=True
+        )
+        return result.get("secure_url")
+    except Exception as e:
+        logging.error("❌ Cloudinary upload failed: %s", str(e))
+        return None
+
